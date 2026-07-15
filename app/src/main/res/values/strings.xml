@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WorkLog AI</string>
+    <string name="nav_today">今天</string>
+    <string name="nav_history">历史</string>
+    <string name="nav_summary">总结</string>
+    <string name="settings">设置</string>
+    <string name="back">返回</string>
+
+    <string name="today_empty_title">记录今天的工作</string>
+    <string name="today_empty_body">随手写下已完成的事项、遇到的问题或下一步计划。</string>
+    <string name="today_add_text">添加文字</string>
+    <string name="today_loading">正在加载工作记录…</string>
+    <string name="today_save_saving">正在保存…</string>
+    <string name="today_save_saved">已保存</string>
+    <string name="today_save_failed">保存失败，点击重试</string>
+    <string name="today_retry">重试</string>
+    <string name="today_move_up">上移记录</string>
+    <string name="today_move_down">下移记录</string>
+    <string name="today_delete">删除记录</string>
+    <string name="today_more_actions">更多操作</string>
+    <string name="today_delete_title">删除这条记录？</string>
+    <string name="today_delete_body">删除后将无法在当前页面恢复。</string>
+    <string name="cancel">取消</string>
+    <string name="delete">删除</string>
+    <string name="today_image_placeholder">图片内容将在后续版本中支持</string>
+    <string name="today_table_placeholder">表格内容将在后续版本中支持</string>
+    <string name="history_empty_title">还没有历史记录</string>
+    <string name="history_empty_body">工作记录会按时间显示在这里。</string>
+    <string name="summary_empty_title">还没有工作总结</string>
+    <string name="summary_empty_body">周报和月报会保存在这里，原始记录始终留在本机。</string>
+
+    <string name="settings_ai_title">大模型服务</string>
+    <string name="settings_ai_body">服务地址、模型和密钥</string>
+    <string name="settings_automation_title">自动总结</string>
+    <string name="settings_automation_body">周报和月报生成规则</string>
+    <string name="settings_data_title">数据与外观</string>
+    <string name="settings_data_body">备份、恢复和深色模式</string>
+    <string name="settings_about_title">关于 WorkLog AI</string>
+    <string name="settings_about_body">版本与隐私说明</string>
+</resources>

@@ -1,0 +1,53 @@
+# Gradle
+.gradle/
+.kotlin/
+build/
+**/build/
+
+# Local Android SDK path
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Signing and secrets
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+secrets.properties
+.env
+.env.*
+!/.env.example
+
+# Local databases and managed attachment data
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+attachments/
+attachments_old/
+attachments_restore_staging/
+restore_journal.json
+
+# Generated packages, exports, and release staging
+*.apk
+*.aab
+*.apks
+*.zip
+*.worklog-backup.zip
+release-artifacts/
+captures/
+
+# Native build output
+.externalNativeBuild/
+.cxx/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and quality reports are generated locally
+reports/

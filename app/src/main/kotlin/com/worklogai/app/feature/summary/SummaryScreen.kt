@@ -1,0 +1,271 @@
+package com.worklogai.app.feature.summary
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.worklogai.app.core.history.DateRange
+import com.worklogai.app.core.model.SummaryType
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+@Composable
+fun SummaryScreen(
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: SummaryViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val clipboard = LocalClipboardManager.current
+    var confirmRegenerate by remember { mutableStateOf(false) }
+    var confirmRestore by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                SummaryUiEvent.ConfirmRegenerate -> confirmRegenerate = true
+                SummaryUiEvent.ConfirmRestoreOriginal -> confirmRestore = true
+                is SummaryUiEvent.CopyText -> clipboard.setText(AnnotatedString(event.value))
+                SummaryUiEvent.OpenSettings -> onOpenSettings()
+                is SummaryUiEvent.ShowMessage -> Unit
+            }
+        }
+    }
+    SummaryContent(state, viewModel::onAction, modifier)
+    if (confirmRegenerate) {
+        AlertDialog(
+            onDismissRequest = { confirmRegenerate = false },
+            title = { Text("重新生成总结？") },
+            text = { Text("重新生成将覆盖当前手动修改的总结。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRegenerate = false
+                    viewModel.onAction(SummaryAction.ConfirmRegenerate)
+                }) { Text("重新生成") }
+            },
+            dismissButton = { TextButton(onClick = { confirmRegenerate = false }) { Text("取消") } },
+        )
+    }
+    if (confirmRestore) {
+        AlertDialog(
+            onDismissRequest = { confirmRestore = false },
+            title = { Text("恢复 AI 原始版本？") },
+            text = { Text("当前手动修改将被替换。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRestore = false
+                    viewModel.onAction(SummaryAction.ConfirmRestoreOriginal)
+                }) { Text("恢复") }
+            },
+            dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("取消") } },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SummaryContent(
+    state: SummaryUiState,
+    onAction: (SummaryAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("工作总结", style = MaterialTheme.typography.titleLarge)
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SummaryType.entries.forEachIndexed { index, type ->
+                SegmentedButton(
+                    selected = state.summaryType == type,
+                    onClick = { onAction(SummaryAction.ChangeType(type)) },
+                    shape =
+                        androidx.compose.material3.SegmentedButtonDefaults.itemShape(
+                            index,
+                            SummaryType.entries.size,
+                        ),
+                    label = { Text(if (type == SummaryType.WEEKLY) "周报" else "月报") },
+                )
+            }
+        }
+        PeriodControls(state.summaryType, state.period, onAction)
+        Text("将发送该时间范围内允许用于 AI 总结的文字、图片说明和表格内容。", style = MaterialTheme.typography.bodySmall)
+        if (state.isLoading) {
+            CircularProgressIndicator()
+        } else {
+            Text(
+                "共 ${state.entryCount} 条记录，其中 ${state.eligibleEntryCount} 条可用于 AI 总结",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (state.isOutdated) Text("原工作记录已更新，建议重新生成", color = MaterialTheme.colorScheme.tertiary)
+            if (state.wasInputTruncated) Text("部分过长内容未纳入总结", color = MaterialTheme.colorScheme.tertiary)
+            when (val generation = state.generationState) {
+                is SummaryGenerationState.Failed -> {
+                    Text(generation.message, color = MaterialTheme.colorScheme.error)
+                    if (generation.hasPreviousContent) {
+                        Text(
+                            "重新生成失败，当前展示上一次结果。",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+                is SummaryGenerationState.NoEligibleContent ->
+                    Text(
+                        if (generation.allEntriesBlocked) "该时间范围内的记录未允许用于 AI 总结" else "该时间范围内没有可用于总结的工作记录",
+                    )
+                SummaryGenerationState.Generating ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CircularProgressIndicator()
+                        Text("正在生成总结…")
+                    }
+                else -> Unit
+            }
+            state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (state.isEditing) {
+                OutlinedTextField(
+                    value = state.editingText,
+                    onValueChange = { value -> onAction(SummaryAction.EditingTextChanged(value)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("编辑总结") },
+                    minLines = 12,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { onAction(SummaryAction.SaveEditing) }) { Text("保存") }
+                    TextButton(onClick = { onAction(SummaryAction.CancelEditing) }) { Text("取消") }
+                }
+            } else {
+                state.displayContent?.let { content ->
+                    SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge) }
+                }
+            }
+            SummaryActions(state, onAction)
+        }
+    }
+}
+
+@Composable
+private fun PeriodControls(
+    type: SummaryType,
+    period: DateRange,
+    onAction: (SummaryAction) -> Unit,
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        TextButton(onClick = { onAction(SummaryAction.PreviousPeriod) }, content = {
+            Text(
+                if (type ==
+                    SummaryType.WEEKLY
+                ) {
+                    "上一周"
+                } else {
+                    "上一月"
+                },
+            )
+        })
+        Column { Text(period.toLabel(), style = MaterialTheme.typography.titleMedium) }
+        TextButton(onClick = { onAction(SummaryAction.NextPeriod) }, content = {
+            Text(
+                if (type ==
+                    SummaryType.WEEKLY
+                ) {
+                    "下一周"
+                } else {
+                    "下一月"
+                },
+            )
+        })
+    }
+    TextButton(onClick = { onAction(SummaryAction.ReturnToCurrentPeriod) }) {
+        Text(
+            if (type ==
+                SummaryType.WEEKLY
+            ) {
+                "回到本周"
+            } else {
+                "回到本月"
+            },
+        )
+    }
+}
+
+@Composable
+private fun SummaryActions(
+    state: SummaryUiState,
+    onAction: (SummaryAction) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        when (state.generationState) {
+            SummaryGenerationState.Generating ->
+                Button(
+                    onClick = { onAction(SummaryAction.CancelGeneration) },
+                ) { Text("取消生成") }
+            is SummaryGenerationState.Failed ->
+                Button(
+                    onClick = { onAction(SummaryAction.RetryGeneration) },
+                ) { Text("重试") }
+            else ->
+                Button(onClick = { onAction(SummaryAction.Generate) }) {
+                    Text(
+                        if (state.summary ==
+                            null
+                        ) {
+                            "生成总结"
+                        } else {
+                            "重新生成"
+                        },
+                    )
+                }
+        }
+        if (!state.displayContent.isNullOrBlank() && !state.isEditing) {
+            TextButton(onClick = { onAction(SummaryAction.CopySummary) }) { Text("复制") }
+            TextButton(onClick = { onAction(SummaryAction.StartEditing) }) { Text("编辑") }
+        }
+    }
+    if (state.summary?.originalContent != null &&
+        !state.isEditing
+    ) {
+        TextButton(onClick = { onAction(SummaryAction.RestoreOriginal) }) { Text("恢复 AI 原始版本") }
+    }
+    if (state.generationState is SummaryGenerationState.Failed &&
+        state.summary == null
+    ) {
+        TextButton(onClick = { onAction(SummaryAction.OpenSettings) }) { Text("前往设置") }
+    }
+}
+
+private fun DateRange.toLabel(): String =
+    if (start.year == end.year &&
+        start.month == end.month
+    ) {
+        start.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.SIMPLIFIED_CHINESE)) +
+            "—" +
+            end.format(DateTimeFormatter.ofPattern("d日", Locale.SIMPLIFIED_CHINESE))
+    } else {
+        start.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.SIMPLIFIED_CHINESE)) + "—" +
+            end.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.SIMPLIFIED_CHINESE))
+    }
