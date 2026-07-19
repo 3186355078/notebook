@@ -85,6 +85,28 @@ class DefaultAutoSummarySchedulerTest {
             assertTrue(AUTO_SUMMARY_GENERATE_TAG in request.tags)
             assertTrue(typeTag(SummaryType.MONTHLY) in request.tags)
             assertEquals("UNMETERED", request.workSpec.constraints.requiredNetworkType.name)
+            assertTrue(request.workSpec.constraints.requiresBatteryNotLow())
+            assertTrue(request.workSpec.constraints.requiresStorageNotLow())
+        }
+
+    @Test
+    fun `real provider allows connected mobile network only when explicitly enabled`() =
+        runBlocking {
+            val gateway = FakeWorkGateway()
+            val scheduler = DefaultAutoSummaryScheduler(gateway, AutoSummaryWorkRequestFactory())
+
+            scheduler.enqueueGeneration(
+                period(SummaryType.WEEKLY, "2026-07-06", "2026-07-12"),
+                AiSettings(useMockProvider = false, allowMobileNetwork = true),
+            )
+
+            val constraints =
+                gateway.generations
+                    .single()
+                    .second.workSpec.constraints
+            assertEquals("CONNECTED", constraints.requiredNetworkType.name)
+            assertTrue(constraints.requiresBatteryNotLow())
+            assertTrue(constraints.requiresStorageNotLow())
         }
 
     @Test

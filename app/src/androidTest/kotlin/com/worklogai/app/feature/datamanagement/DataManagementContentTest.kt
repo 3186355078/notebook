@@ -30,7 +30,10 @@ class DataManagementContentTest {
         composeRule.onNodeWithText("数据管理").assertIsDisplayed()
         composeRule.onNodeWithText("创建完整备份").assertIsDisplayed()
         composeRule.onNodeWithText("从备份恢复").assertIsDisplayed()
-        composeRule.onNodeWithText("API Key", substring = true).assertIsDisplayed()
+        composeRule
+            .onNodeWithText(
+                "导出和备份只会在您主动选择文件位置后执行。完整备份默认不加密，且不包含 API Key。",
+            ).assertIsDisplayed()
     }
 
     @Test

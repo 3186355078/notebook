@@ -1,5 +1,8 @@
 package com.worklogai.app.ai.usecase
 
+import com.worklogai.app.ai.model.AiProviderError
+import com.worklogai.app.ai.model.AiProviderException
+import com.worklogai.app.ai.model.AiSummaryResponse
 import com.worklogai.app.ai.provider.AiSummaryProvider
 import com.worklogai.app.ai.provider.AiSummaryProviderFactory
 import com.worklogai.app.ai.provider.MockAiSummaryProvider
@@ -115,6 +118,75 @@ class GenerateWorkSummaryUseCaseTest {
             )
         }
 
+    @Test
+    fun `automatic generation retries only transient provider failures`() =
+        runBlocking {
+            val cases =
+                listOf(
+                    AiProviderError.RateLimited to true,
+                    AiProviderError.Timeout to true,
+                    AiProviderError.ServerError(500) to true,
+                    AiProviderError.Unauthorized to false,
+                    AiProviderError.Forbidden to false,
+                    AiProviderError.ModelNotFound to false,
+                )
+
+            cases.forEach { (providerError, expectedRetryable) ->
+                val result =
+                    createUseCase(
+                        FakeEntryRepository(listOf(entry(allowAi = true))),
+                        FakeSummaryRepository(),
+                        FailingProvider(AiProviderException(providerError)),
+                    )(SummaryType.WEEKLY, range(), SummaryGenerationMode.AUTOMATIC)
+
+                assertTrue(result is GenerateWorkSummaryResult.Failure)
+                assertEquals(expectedRetryable, (result as GenerateWorkSummaryResult.Failure).retryable)
+            }
+        }
+
+    @Test
+    fun `automatic work retry regenerates an existing transient failure`() =
+        runBlocking {
+            val provider = FailOnceProvider()
+            val summaryRepository = FakeSummaryRepository()
+            val useCase =
+                createUseCase(
+                    FakeEntryRepository(listOf(entry(allowAi = true))),
+                    summaryRepository,
+                    provider,
+                )
+
+            val first = useCase(SummaryType.WEEKLY, range(), SummaryGenerationMode.AUTOMATIC)
+            val second = useCase(SummaryType.WEEKLY, range(), SummaryGenerationMode.AUTOMATIC)
+
+            assertTrue(first is GenerateWorkSummaryResult.Failure)
+            assertEquals(true, (first as GenerateWorkSummaryResult.Failure).retryable)
+            assertTrue(second is GenerateWorkSummaryResult.Success)
+            assertEquals(2, provider.calls)
+            assertEquals(
+                SummaryStatus.SUCCESS,
+                summaryRepository.values.values
+                    .single()
+                    .status,
+            )
+        }
+
+    @Test
+    fun `invalid model json is repaired once and never retried indefinitely`() =
+        runBlocking {
+            val provider = InvalidJsonProvider()
+            val result =
+                createUseCase(
+                    FakeEntryRepository(listOf(entry(allowAi = true))),
+                    FakeSummaryRepository(),
+                    provider,
+                )(SummaryType.WEEKLY, range(), SummaryGenerationMode.AUTOMATIC)
+
+            assertTrue(result is GenerateWorkSummaryResult.Failure)
+            assertEquals(false, (result as GenerateWorkSummaryResult.Failure).retryable)
+            assertEquals(2, provider.calls)
+        }
+
     private fun createUseCase(
         entryRepository: WorkEntryRepository,
         summaryRepository: WorkSummaryRepository,
@@ -163,6 +235,25 @@ class GenerateWorkSummaryUseCaseTest {
             now,
             listOf(ContentBlock.Text("text", "entry", 0, "完成登录", now, now)),
         )
+    }
+}
+
+private class FailOnceProvider : AiSummaryProvider {
+    private val success = MockAiSummaryProvider()
+    var calls: Int = 0
+        private set
+
+    override val providerId: String = "fail-once"
+
+    override suspend fun generateSummary(
+        request: com.worklogai.app.ai.model.AiSummaryRequest,
+    ): Result<AiSummaryResponse> {
+        calls += 1
+        return if (calls == 1) {
+            Result.failure(AiProviderException(AiProviderError.RateLimited))
+        } else {
+            success.generateSummary(request)
+        }
     }
 }
 
@@ -371,6 +462,34 @@ private class CountingProvider(
     ): Result<com.worklogai.app.ai.model.AiSummaryResponse> {
         calls++
         return if (fail) Result.failure(IllegalStateException()) else MockAiSummaryProvider().generateSummary(request)
+    }
+}
+
+private class FailingProvider(
+    private val error: Throwable,
+) : AiSummaryProvider {
+    override val providerId: String = "failing"
+
+    override suspend fun generateSummary(
+        request: com.worklogai.app.ai.model.AiSummaryRequest,
+    ): Result<AiSummaryResponse> = Result.failure(error)
+}
+
+private class InvalidJsonProvider : AiSummaryProvider {
+    var calls = 0
+    override val providerId: String = "invalid-json"
+
+    override suspend fun generateSummary(
+        request: com.worklogai.app.ai.model.AiSummaryRequest,
+    ): Result<AiSummaryResponse> {
+        calls++
+        return Result.success(
+            AiSummaryResponse(
+                content = "not-json",
+                providerId = providerId,
+                model = request.model,
+            ),
+        )
     }
 }
 

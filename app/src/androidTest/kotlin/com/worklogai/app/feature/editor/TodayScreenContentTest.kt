@@ -15,6 +15,7 @@ import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.TableRow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
@@ -97,7 +98,60 @@ class TodayScreenContentTest {
         composeRule.onNodeWithContentDescription("添加表格").performClick()
         composeRule.runOnIdle {
             assertEquals(0, pickerCalls)
-            assertEquals(listOf(TodayAction.AddTextBlock, TodayAction.AddTableBlock), actions)
+            assertEquals(
+                listOf(TodayAction.AddTextBlock, TodayAction.AddTableBlock),
+                actions.filter {
+                    it == TodayAction.AddTextBlock || it == TodayAction.AddTableBlock
+                },
+            )
+        }
+    }
+
+    @Test
+    fun completeFiftyByEightTableRendersAllCellsAndDisablesGrowthAtTheLimits() {
+        val actions = mutableListOf<TodayAction>()
+        val columns = (1..8).map { index -> TableColumn("column-$index", "Column $index") }
+        val rows =
+            (1..50).map { rowIndex ->
+                TableRow(
+                    id = "row-$rowIndex",
+                    cells = columns.associate { column -> column.id to "R$rowIndex-${column.id}" },
+                )
+            }
+        val startedAt = android.os.SystemClock.elapsedRealtime()
+
+        composeRule.setContent {
+            WorkLogTheme {
+                TodayScreenContent(
+                    state =
+                        stateWith(
+                            TableBlockUiModel(
+                                id = "large-table",
+                                order = 0,
+                                content = TableContent(title = "Stage 9 scale table", columns = columns, rows = rows),
+                                isSaving = false,
+                                hasSaveError = false,
+                            ),
+                        ),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    onAction = actions::add,
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        android.util.Log.i(
+            "Stage9Metrics",
+            "table_50x8_render_ms=${android.os.SystemClock.elapsedRealtime() - startedAt}",
+        )
+
+        composeRule.onNodeWithText("添加一行").assertIsNotEnabled()
+        composeRule.onNodeWithText("添加一列").assertIsNotEnabled()
+        val fields = composeRule.onAllNodes(hasSetTextAction())
+        val fieldCount = fields.fetchSemanticsNodes().size
+        assertTrue(fieldCount >= EXPECTED_TABLE_FIELDS)
+        fields[fieldCount - 1].performTextInput("末格验证")
+        composeRule.runOnIdle {
+            assertTrue(actions.last() is TodayAction.TableCellChanged)
         }
     }
 
@@ -132,4 +186,8 @@ class TodayScreenContentTest {
             isSaving = false,
             hasSaveError = false,
         )
+
+    private companion object {
+        const val EXPECTED_TABLE_FIELDS = 409
+    }
 }

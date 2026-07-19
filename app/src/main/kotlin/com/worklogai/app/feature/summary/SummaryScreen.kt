@@ -1,6 +1,7 @@
 package com.worklogai.app.feature.summary
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -44,6 +48,7 @@ fun SummaryScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
     var confirmRegenerate by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel) {
@@ -53,11 +58,17 @@ fun SummaryScreen(
                 SummaryUiEvent.ConfirmRestoreOriginal -> confirmRestore = true
                 is SummaryUiEvent.CopyText -> clipboard.setText(AnnotatedString(event.value))
                 SummaryUiEvent.OpenSettings -> onOpenSettings()
-                is SummaryUiEvent.ShowMessage -> Unit
+                is SummaryUiEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
             }
         }
     }
-    SummaryContent(state, viewModel::onAction, modifier)
+    Box(modifier = modifier.fillMaxSize()) {
+        SummaryContent(state, viewModel::onAction)
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
     if (confirmRegenerate) {
         AlertDialog(
             onDismissRequest = { confirmRegenerate = false },

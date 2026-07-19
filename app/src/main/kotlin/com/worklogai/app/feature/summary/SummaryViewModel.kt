@@ -72,6 +72,7 @@ class SummaryViewModel
                 SummaryAction.CopySummary ->
                     _uiState.value.displayContent?.takeIf(String::isNotBlank)?.let { value ->
                         _events.trySend(SummaryUiEvent.CopyText(value))
+                        _events.trySend(SummaryUiEvent.ShowMessage("已复制"))
                     }
                 is SummaryAction.EditingTextChanged -> _uiState.value = _uiState.value.copy(editingText = action.value)
                 SummaryAction.Generate -> beginGeneration(confirmManualEdits = true)
@@ -203,7 +204,27 @@ class SummaryViewModel
         private fun restoreOriginal() {
             val summary = _uiState.value.summary ?: return
             val original = summary.parseOriginal(dependencies.workSummarySkill) ?: return
-            _uiState.value = _uiState.value.copy(isEditing = true, editingText = original)
+            viewModelScope.launch {
+                when (
+                    dependencies.workSummaryRepository.updateEditedContent(
+                        summary.summaryType,
+                        summary.periodStart,
+                        summary.periodEnd,
+                        original,
+                    )
+                ) {
+                    is DataResult.Failure ->
+                        _uiState.value = _uiState.value.copy(errorMessage = "恢复 AI 原始版本失败，请重试")
+                    is DataResult.Success ->
+                        _uiState.value =
+                            _uiState.value.copy(
+                                summary = summary.copy(editedContent = original),
+                                isEditing = false,
+                                editingText = "",
+                                errorMessage = null,
+                            )
+                }
+            }
         }
     }
 

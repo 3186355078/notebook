@@ -23,6 +23,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.Proxy
+import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
 class AiSummaryProviderTest {
@@ -118,6 +119,67 @@ class AiSummaryProviderTest {
             )
             assertFalse(result.exceptionOrNull()!!.message!!.contains("test-secret"))
         }
+
+    @Test
+    fun `openai compatible provider classifies transient and permanent http failures safely`() =
+        runBlocking {
+            val cases =
+                listOf(
+                    429 to AiProviderError.RateLimited,
+                    500 to AiProviderError.ServerError(500),
+                    401 to AiProviderError.Unauthorized,
+                    403 to AiProviderError.Forbidden,
+                    404 to AiProviderError.ModelNotFound,
+                )
+
+            cases.forEach { (statusCode, expected) ->
+                val result =
+                    provider(
+                        InterceptingHttpClientFactory(
+                            recorded = AtomicReference(),
+                            statusCode = statusCode,
+                            responseBody = "sensitive-response-body",
+                        ),
+                    ).generateSummary(request("non-sensitive-test-input"))
+                val error = result.exceptionOrNull() as AiProviderException
+
+                assertEquals(expected, error.providerError)
+                assertFalse(error.message.orEmpty().contains("sensitive-response-body"))
+                assertFalse(error.message.orEmpty().contains("test-secret"))
+            }
+        }
+
+    @Test
+    fun `openai compatible provider maps socket timeout without exposing request content`() =
+        runBlocking {
+            val result =
+                provider(
+                    InterceptingHttpClientFactory(
+                        recorded = AtomicReference(),
+                        failure = SocketTimeoutException("non-public timeout detail"),
+                    ),
+                ).generateSummary(request("non-sensitive-test-input"))
+            val error = result.exceptionOrNull() as AiProviderException
+
+            assertEquals(AiProviderError.Timeout, error.providerError)
+            assertFalse(error.message.orEmpty().contains("non-public timeout detail"))
+            assertFalse(error.message.orEmpty().contains("non-sensitive-test-input"))
+        }
+
+    private fun provider(httpClientFactory: AiHttpClientFactory) =
+        OpenAiCompatibleSummaryProvider(
+            settingsRepository =
+                FakeAiSettingsRepository(
+                    AiSettings(
+                        baseUrl = "http://127.0.0.1:8080",
+                        model = "test-model",
+                        useMockProvider = false,
+                    ),
+                ),
+            secretStore = FakeSecretStore("test-secret"),
+            httpClientFactory = httpClientFactory,
+            allowHttpForLocalhost = true,
+        )
 }
 
 private fun request(content: String) =
@@ -125,6 +187,10 @@ private fun request(content: String) =
 
 private class InterceptingHttpClientFactory(
     private val recorded: AtomicReference<Request>,
+    private val statusCode: Int = 200,
+    private val responseBody: String =
+        """{"model":"test-model","choices":[{"message":{"content":"{\"title\":\"summary\"}"}}]}""",
+    private val failure: SocketTimeoutException? = null,
 ) : AiHttpClientFactory {
     override fun create(timeoutSeconds: Int): OkHttpClient =
         OkHttpClient
@@ -133,12 +199,23 @@ private class InterceptingHttpClientFactory(
             .addInterceptor { chain ->
                 val request = chain.request()
                 recorded.set(request)
+                failure?.let { throw it }
+                if (statusCode != 200) {
+                    return@addInterceptor Response
+                        .Builder()
+                        .request(request)
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(statusCode)
+                        .message("test failure")
+                        .body(responseBody.toResponseBody())
+                        .build()
+                }
                 Response
                     .Builder()
                     .request(request)
                     .protocol(Protocol.HTTP_1_1)
-                    .code(200)
-                    .message("OK")
+                    .code(statusCode)
+                    .message("test response")
                     .body(
                         """
                         {"model":"test-model","choices":[{"message":{"content":"{\"title\":\"周报\"}"}}]}

@@ -33,12 +33,15 @@ internal fun summaryNavigationTargetOrNull(
     typeValue: String?,
     startValue: String?,
     endValue: String?,
+    today: LocalDate = LocalDate.now(),
 ): SummaryNavigationTarget? {
     val type = typeValue?.let(::parseSummaryType)
     val start = startValue?.let(::parseDate)
     val end = endValue?.let(::parseDate)
     return if (type != null && start != null && end != null) {
-        SummaryNavigationTarget(type, start, end).takeIf(SummaryNavigationTarget::hasCanonicalPeriod)
+        SummaryNavigationTarget(type, start, end).takeIf { target ->
+            target.hasCanonicalPeriod() && target.periodEnd.isBefore(today)
+        }
     } else {
         null
     }

@@ -1,5 +1,7 @@
 package com.worklogai.app.ai.provider
 
+import android.content.Context
+import android.content.pm.ApplicationInfo
 import com.worklogai.app.ai.model.AiProviderError
 import com.worklogai.app.ai.model.AiProviderException
 import com.worklogai.app.ai.model.AiResponseFormat
@@ -8,6 +10,7 @@ import com.worklogai.app.ai.model.AiSummaryResponse
 import com.worklogai.app.ai.model.AiTokenUsage
 import com.worklogai.app.core.datastore.AiSettingsRepository
 import com.worklogai.app.core.security.SecretStore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
@@ -48,157 +51,159 @@ class DefaultAiHttpClientFactory
                 .build()
     }
 
-class OpenAiCompatibleSummaryProvider
+class OpenAiCompatibleSummaryProvider internal constructor(
+    private val settingsRepository: AiSettingsRepository,
+    private val secretStore: SecretStore,
+    private val httpClientFactory: AiHttpClientFactory,
+    private val allowHttpForLocalhost: Boolean,
+) : AiSummaryProvider {
     @Inject
     constructor(
-        private val settingsRepository: AiSettingsRepository,
-        private val secretStore: SecretStore,
-        private val httpClientFactory: AiHttpClientFactory,
-    ) : AiSummaryProvider {
-        private var allowHttpForLocalhost: Boolean = false
+        settingsRepository: AiSettingsRepository,
+        secretStore: SecretStore,
+        httpClientFactory: AiHttpClientFactory,
+        @ApplicationContext context: Context,
+    ) : this(settingsRepository, secretStore, httpClientFactory, context.applicationInfo.isDebuggable())
 
-        constructor(
-            settingsRepository: AiSettingsRepository,
-            secretStore: SecretStore,
-            httpClientFactory: AiHttpClientFactory,
-            allowHttpForLocalhost: Boolean,
-        ) : this(settingsRepository, secretStore, httpClientFactory) {
-            this.allowHttpForLocalhost = allowHttpForLocalhost
+    constructor(
+        settingsRepository: AiSettingsRepository,
+        secretStore: SecretStore,
+        httpClientFactory: AiHttpClientFactory,
+    ) : this(settingsRepository, secretStore, httpClientFactory, false)
+
+    override val providerId: String = "openai-compatible"
+    private val json = Json { ignoreUnknownKeys = true }
+
+    override suspend fun generateSummary(request: AiSummaryRequest): Result<AiSummaryResponse> =
+        try {
+            val settings = settingsRepository.getSettings()
+            val resolved = resolveRequest(settings, request)
+            executeResolved(settings.timeoutSeconds, resolved)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: IOException) {
+            Result.failure(AiProviderException(error.toProviderError()))
+        } catch (_: IllegalArgumentException) {
+            Result.failure(AiProviderException(AiProviderError.Unknown))
+        } catch (_: IllegalStateException) {
+            Result.failure(AiProviderException(AiProviderError.Unknown))
         }
 
-        override val providerId: String = "openai-compatible"
-        private val json = Json { ignoreUnknownKeys = true }
+    private suspend fun executeResolved(
+        timeoutSeconds: Int,
+        resolved: Result<ResolvedRequest>,
+    ): Result<AiSummaryResponse> =
+        resolved.exceptionOrNull()?.let { error -> Result.failure<AiSummaryResponse>(error) }
+            ?: resolved.getOrNull()?.let { value -> execute(createCall(timeoutSeconds, value), value.model) }
+            ?: Result.failure(AiProviderException(AiProviderError.Unknown))
 
-        override suspend fun generateSummary(request: AiSummaryRequest): Result<AiSummaryResponse> =
-            try {
-                val settings = settingsRepository.getSettings()
-                val resolved = resolveRequest(settings, request)
-                executeResolved(settings.timeoutSeconds, resolved)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: IOException) {
-                Result.failure(AiProviderException(error.toProviderError()))
-            } catch (_: IllegalArgumentException) {
-                Result.failure(AiProviderException(AiProviderError.Unknown))
-            } catch (_: IllegalStateException) {
-                Result.failure(AiProviderException(AiProviderError.Unknown))
-            }
+    private fun createCall(
+        timeoutSeconds: Int,
+        resolved: ResolvedRequest,
+    ): Call {
+        val httpRequest =
+            Request
+                .Builder()
+                .url(resolved.endpoint)
+                .header("Authorization", "Bearer ${resolved.apiKey}")
+                .header("Content-Type", "application/json")
+                .post(requestPayload(resolved.request).toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+        return httpClientFactory.create(timeoutSeconds).newCall(httpRequest)
+    }
 
-        private suspend fun executeResolved(
-            timeoutSeconds: Int,
-            resolved: Result<ResolvedRequest>,
-        ): Result<AiSummaryResponse> =
-            resolved.exceptionOrNull()?.let { error -> Result.failure<AiSummaryResponse>(error) }
-                ?: resolved.getOrNull()?.let { value -> execute(createCall(timeoutSeconds, value), value.model) }
-                ?: Result.failure(AiProviderException(AiProviderError.Unknown))
-
-        private fun createCall(
-            timeoutSeconds: Int,
-            resolved: ResolvedRequest,
-        ): Call {
-            val httpRequest =
-                Request
-                    .Builder()
-                    .url(resolved.endpoint)
-                    .header("Authorization", "Bearer ${resolved.apiKey}")
-                    .header("Content-Type", "application/json")
-                    .post(requestPayload(resolved.request).toRequestBody(JSON_MEDIA_TYPE))
-                    .build()
-            return httpClientFactory.create(timeoutSeconds).newCall(httpRequest)
+    private suspend fun resolveRequest(
+        settings: com.worklogai.app.core.datastore.AiSettings,
+        request: AiSummaryRequest,
+    ): Result<ResolvedRequest> {
+        val endpoint = normalizeEndpoint(settings.baseUrl, allowHttpForLocalhost)
+        val apiKey = secretStore.getApiKey().getOrNull()?.takeIf(String::isNotBlank)
+        val model = request.model.ifBlank { settings.model }.trim()
+        return if (endpoint == null) {
+            Result.failure(AiProviderException(AiProviderError.InvalidBaseUrl))
+        } else if (apiKey == null || model.isEmpty()) {
+            Result.failure(AiProviderException(AiProviderError.MissingConfiguration))
+        } else {
+            Result.success(ResolvedRequest(endpoint, apiKey, model, request.copy(model = model)))
         }
+    }
 
-        private suspend fun resolveRequest(
-            settings: com.worklogai.app.core.datastore.AiSettings,
-            request: AiSummaryRequest,
-        ): Result<ResolvedRequest> {
-            val endpoint = normalizeEndpoint(settings.baseUrl, allowHttpForLocalhost)
-            val apiKey = secretStore.getApiKey().getOrNull()?.takeIf(String::isNotBlank)
-            val model = request.model.ifBlank { settings.model }.trim()
-            return if (endpoint == null) {
-                Result.failure(AiProviderException(AiProviderError.InvalidBaseUrl))
-            } else if (apiKey == null || model.isEmpty()) {
-                Result.failure(AiProviderException(AiProviderError.MissingConfiguration))
-            } else {
-                Result.success(ResolvedRequest(endpoint, apiKey, model, request.copy(model = model)))
-            }
-        }
-
-        private suspend fun execute(
-            call: Call,
-            fallbackModel: String,
-        ): Result<AiSummaryResponse> =
-            awaitResponse(call).useResult { response ->
-                val requestId = response.header("x-request-id")
-                val body = response.body?.string().orEmpty()
-                if (!response.isSuccessful) {
-                    return@useResult Result.failure(
-                        AiProviderException(response.toProviderError(body)),
-                    )
-                }
-                val root =
-                    runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
-                        ?: return@useResult Result.failure(AiProviderException(AiProviderError.EmptyResponse))
-                val content =
-                    root["choices"]
-                        ?.jsonArrayOrNull()
-                        ?.firstOrNull()
-                        ?.jsonObject
-                        ?.get("message")
-                        ?.jsonObject
-                        ?.get("content")
-                        ?.jsonPrimitive
-                        ?.contentOrNull
-                        ?.trim()
-                        .orEmpty()
-                if (content.isEmpty()) {
-                    return@useResult Result.failure(
-                        AiProviderException(AiProviderError.EmptyResponse),
-                    )
-                }
-                Result.success(
-                    AiSummaryResponse(
-                        content = content,
-                        providerId = providerId,
-                        model = root["model"]?.jsonPrimitive?.contentOrNull ?: fallbackModel,
-                        requestId = requestId,
-                        usage = root["usage"]?.jsonObjectOrNull()?.toUsage(),
-                    ),
+    private suspend fun execute(
+        call: Call,
+        fallbackModel: String,
+    ): Result<AiSummaryResponse> =
+        awaitResponse(call).useResult { response ->
+            val requestId = response.header("x-request-id")
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                return@useResult Result.failure(
+                    AiProviderException(response.toProviderError(body)),
                 )
             }
-
-        private fun requestPayload(request: AiSummaryRequest): String =
-            json.encodeToString(
-                kotlinx.serialization.json.JsonObject
-                    .serializer(),
-                buildJsonObject {
-                    put("model", kotlinx.serialization.json.JsonPrimitive(request.model))
-                    request.temperature?.let { put("temperature", kotlinx.serialization.json.JsonPrimitive(it)) }
-                    put(
-                        "messages",
-                        buildJsonArray {
-                            add(
-                                buildJsonObject {
-                                    put("role", kotlinx.serialization.json.JsonPrimitive("system"))
-                                    put("content", kotlinx.serialization.json.JsonPrimitive(request.systemPrompt))
-                                },
-                            )
-                            add(
-                                buildJsonObject {
-                                    put("role", kotlinx.serialization.json.JsonPrimitive("user"))
-                                    put("content", kotlinx.serialization.json.JsonPrimitive(request.userPrompt))
-                                },
-                            )
-                        },
-                    )
-                    if (request.responseFormat is AiResponseFormat.JsonObject) {
-                        put(
-                            "response_format",
-                            buildJsonObject { put("type", kotlinx.serialization.json.JsonPrimitive("json_object")) },
-                        )
-                    }
-                },
+            val root =
+                runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
+                    ?: return@useResult Result.failure(AiProviderException(AiProviderError.EmptyResponse))
+            val content =
+                root["choices"]
+                    ?.jsonArrayOrNull()
+                    ?.firstOrNull()
+                    ?.jsonObject
+                    ?.get("message")
+                    ?.jsonObject
+                    ?.get("content")
+                    ?.jsonPrimitive
+                    ?.contentOrNull
+                    ?.trim()
+                    .orEmpty()
+            if (content.isEmpty()) {
+                return@useResult Result.failure(
+                    AiProviderException(AiProviderError.EmptyResponse),
+                )
+            }
+            Result.success(
+                AiSummaryResponse(
+                    content = content,
+                    providerId = providerId,
+                    model = root["model"]?.jsonPrimitive?.contentOrNull ?: fallbackModel,
+                    requestId = requestId,
+                    usage = root["usage"]?.jsonObjectOrNull()?.toUsage(),
+                ),
             )
-    }
+        }
+
+    private fun requestPayload(request: AiSummaryRequest): String =
+        json.encodeToString(
+            kotlinx.serialization.json.JsonObject
+                .serializer(),
+            buildJsonObject {
+                put("model", kotlinx.serialization.json.JsonPrimitive(request.model))
+                request.temperature?.let { put("temperature", kotlinx.serialization.json.JsonPrimitive(it)) }
+                put(
+                    "messages",
+                    buildJsonArray {
+                        add(
+                            buildJsonObject {
+                                put("role", kotlinx.serialization.json.JsonPrimitive("system"))
+                                put("content", kotlinx.serialization.json.JsonPrimitive(request.systemPrompt))
+                            },
+                        )
+                        add(
+                            buildJsonObject {
+                                put("role", kotlinx.serialization.json.JsonPrimitive("user"))
+                                put("content", kotlinx.serialization.json.JsonPrimitive(request.userPrompt))
+                            },
+                        )
+                    },
+                )
+                if (request.responseFormat is AiResponseFormat.JsonObject) {
+                    put(
+                        "response_format",
+                        buildJsonObject { put("type", kotlinx.serialization.json.JsonPrimitive("json_object")) },
+                    )
+                }
+            },
+        )
+}
 
 private data class ResolvedRequest(
     val endpoint: String,
@@ -251,6 +256,8 @@ private fun normalizeEndpoint(
     }.getOrNull()
 
 private fun String?.isLoopbackHost(): Boolean = this == "localhost" || this == "127.0.0.1" || this == "::1"
+
+private fun ApplicationInfo.isDebuggable(): Boolean = flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
 private fun IOException.toProviderError(): AiProviderError =
     when (this) {

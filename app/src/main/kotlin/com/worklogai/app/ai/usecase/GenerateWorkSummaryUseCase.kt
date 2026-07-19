@@ -63,7 +63,6 @@ enum class SummaryGenerationMode {
 enum class AutomaticGenerationSkipReason {
     EXISTING_SUCCESS,
     EXISTING_GENERATING,
-    EXISTING_FAILED,
 }
 
 class GenerateWorkSummaryUseCase
@@ -477,8 +476,9 @@ private fun SummaryStatus.toAutomaticSkipReason(): AutomaticGenerationSkipReason
     when (this) {
         SummaryStatus.SUCCESS -> AutomaticGenerationSkipReason.EXISTING_SUCCESS
         SummaryStatus.GENERATING -> AutomaticGenerationSkipReason.EXISTING_GENERATING
-        SummaryStatus.FAILED -> AutomaticGenerationSkipReason.EXISTING_FAILED
-        SummaryStatus.PENDING -> null
+        SummaryStatus.FAILED,
+        SummaryStatus.PENDING,
+        -> null
     }
 
 private val periodLocks = ConcurrentHashMap<String, Mutex>()

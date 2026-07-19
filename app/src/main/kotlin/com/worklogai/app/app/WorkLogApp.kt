@@ -42,6 +42,7 @@ import com.worklogai.app.feature.editor.TodayScreen
 import com.worklogai.app.feature.history.HistoryScreen
 import com.worklogai.app.feature.settings.SettingsScreen
 import com.worklogai.app.feature.summary.SummaryScreen
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +63,7 @@ fun WorkLogApp(
 
     LaunchedEffect(summaryNavigationTarget) {
         summaryNavigationTarget?.let { target ->
+            navController.currentBackStackEntryFlow.first()
             navController.navigate(summaryPeriodRoute(target))
             onSummaryNavigationConsumed()
         }
