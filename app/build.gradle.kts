@@ -1,6 +1,25 @@
 import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val releaseSigningEnvironment =
+    listOf(
+        "WORKLOG_RELEASE_STORE_FILE",
+        "WORKLOG_RELEASE_STORE_PASSWORD",
+        "WORKLOG_RELEASE_KEY_ALIAS",
+        "WORKLOG_RELEASE_KEY_PASSWORD",
+    )
+val releaseSigningValues =
+    releaseSigningEnvironment.associateWith { name ->
+        providers.environmentVariable(name).orNull?.takeIf(String::isNotBlank)
+    }
+val hasReleaseSigning = releaseSigningValues.values.all { it != null }
+val missingReleaseSigningEnvironment =
+    releaseSigningValues
+        .filterValues { value -> value == null }
+        .keys
+        .toList()
+val releaseKeystorePath = releaseSigningValues["WORKLOG_RELEASE_STORE_FILE"].orEmpty()
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.detekt)
@@ -28,8 +47,25 @@ android {
     }
 
     buildTypes {
+        if (hasReleaseSigning) {
+            signingConfigs.create("release") {
+                storeFile = file(requireNotNull(releaseSigningValues["WORKLOG_RELEASE_STORE_FILE"]))
+                storePassword = requireNotNull(releaseSigningValues["WORKLOG_RELEASE_STORE_PASSWORD"])
+                keyAlias = requireNotNull(releaseSigningValues["WORKLOG_RELEASE_KEY_ALIAS"])
+                keyPassword = requireNotNull(releaseSigningValues["WORKLOG_RELEASE_KEY_PASSWORD"])
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = false
+            }
+        }
         release {
-            isMinifyEnabled = false
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -43,6 +79,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 
@@ -65,6 +102,40 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+val verifyReleaseSigning by tasks.registering {
+    group = "verification"
+    description = "Checks non-secret Release signing environment before packaging."
+    inputs.property(
+        "missingReleaseSigningEnvironment",
+        missingReleaseSigningEnvironment.joinToString(),
+    )
+    inputs.property("releaseKeystorePath", releaseKeystorePath)
+    doLast {
+        val missing =
+            inputs.properties
+                .getValue("missingReleaseSigningEnvironment")
+                .toString()
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Release signing configuration is incomplete. Set: $missing",
+            )
+        }
+        val storePath: String =
+            inputs.properties
+                .getValue("releaseKeystorePath")
+                .toString()
+        if (!File(storePath).isFile) {
+            throw GradleException("Release keystore file does not exist or is not a regular file.")
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name in setOf("validateSigningRelease", "packageRelease", "assembleRelease", "bundleRelease")) {
+        dependsOn(verifyReleaseSigning)
     }
 }
 

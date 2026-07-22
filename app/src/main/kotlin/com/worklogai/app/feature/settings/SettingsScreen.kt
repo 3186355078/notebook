@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.worklogai.app.BuildConfig
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -117,6 +118,10 @@ internal fun SettingsContent(
         ) { Text("数据管理") }
         Text(
             "API Key 仅以 Android Keystore 保护的密文保存在本机，不会写入工作日志或普通设置。",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            "WorkLog AI ${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodySmall,
         )
     }

@@ -218,7 +218,17 @@ Worker 通过应用级 `WorkLogWorkerFactory` 获取 Hilt 注入依赖；它不�
 
 restore journal 只记录随机 restoreId、阶段、内部 staging/old 目录名、数据库/设置是否替换和 Scheduler 待协调标记，不含正文、图片说明、API Key、Provider 密文、SAF URI 或绝对路径。应用启动时先运行保守修复：PREPARED 清理 staging，ATTACHMENTS_SWITCHED 恢复 old；数据库状态无法证明或 journal 损坏时保留数据并报告需要修复，不盲目删除 old。SETTINGS_REPLACED/COMPLETED 会幂等协调 Scheduler 并清理 journal。Scheduler 属于可重建派生状态，失败不回滚已成功恢复的用户数据，而返回 warning 并在下次启动重试；取消保持 `CancellationException`，仅在已切换正式状态时用最小 `NonCancellable` 区间补偿。
 
+恢复成功事件不会复用恢复前的 Today 导航目的地。导航会以 `inclusive = true` 弹出旧 Today 再创建安全根页面，使旧 ViewModel、旧 Repository Flow 和旧 Draft 生命周期结束；否则数据库替换期间的旧观察流可能把一次瞬时失败保留在首页。`RestoreNavigationTest` 固定验证该导航选项。
+
 应用级 WorkerFactory 以 `Provider` 延迟解析包含 WorkManager 的调度依赖，避免 Application 字段注入期间递归初始化 WorkManager。未建立初始 Git 提交时，最终空白检查使用 `git add -N .` 让 `git diff --check` 覆盖全部未跟踪源码，再用 `git reset` 清除 intent-to-add；此流程不创建提交或推送。
+
+### ADR-011：Release 构建与签名边界
+
+内部试用版固定为 versionName 0.1.0、versionCode 1。Release `debuggable=false`，启用 R8 优化和资源压缩，并继续使用 `usesCleartextTraffic=false`、`allowBackup=false` 与完全排除系统备份/设备迁移的 data extraction rules。Debug-only Activity、受控 HTTP 服务、恢复暂停点、批量数据生成器和 Android Test 只存在于 `debug`、`test`、`androidTest` 或 `tools`，Release 源集不引用这些入口。
+
+Release Keystore 位于仓库之外。Gradle 只从当前进程的 `WORKLOG_RELEASE_STORE_FILE`、`WORKLOG_RELEASE_STORE_PASSWORD`、`WORKLOG_RELEASE_KEY_ALIAS` 和 `WORKLOG_RELEASE_KEY_PASSWORD` 读取签名配置；缺失变量或无效文件会在 Release 打包前以不含口令/路径的受控错误停止，Debug 构建则完全不依赖这些变量。校验任务只把缺失变量名称和非敏感文件路径建模为任务输入，口令不进入任务输入或 Configuration Cache。签名值不写入 Gradle 文件、BuildConfig、资源、报告或 Git。`tools/release-build.ps1` 只在交互式终端把 SecureString 临时转换给子进程，并在 finally 中清除环境变量和 BSTR。
+
+APK 使用 v2/v3 签名，AAB 使用 JAR 签名。最终提交后必须重新 clean 构建、用官方 `apksigner`/`jarsigner` 验证，并通过 `tools/package-release.ps1` 把 APK、AAB、SHA256SUMS、发布报告和 R8 mapping 复制到 Git 忽略的 `release-artifacts/<version>/`。发布产物、mapping、Keystore 和密码永不进入版本控制；本地 Tag 不自动 push。
 
 ## 6. 错误模型
 
@@ -243,6 +253,7 @@ AI 原始返回可在 `WorkSummary` 中为用户本地排查保留，但不得�
 - Compose UI Test：启动、块编辑、自动保存、表格、图片状态、历史、Mock AI 成功和失败。
 - Worker 测试：约束、重试、周期检查和重复执行。
 - 每个阶段至少运行构建、单元测试、相关仪器测试编译、Android Lint、Detekt 和 ktlint；无法运行设备测试时必须明确区分“已编译”和“已执行”。
+- 阶段 9 使用 Android 16 / API 36 的 HONOR 真机执行 41 个 Instrumentation 方法和人工 SAF、Keystore、通知、Worker、生命周期及性能矩阵。Android 10～13 第二设备/模拟器按用户明确要求未执行，作为内部试用风险记录，绝不写成通过。
 
 ## 阶段 5：历史日志架构
 

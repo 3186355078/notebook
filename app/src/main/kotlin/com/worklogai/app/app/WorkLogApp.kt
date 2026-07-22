@@ -22,10 +22,12 @@ import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavOptions
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navOptions
 import com.worklogai.app.R
 import com.worklogai.app.app.navigation.DATA_MANAGEMENT_ROUTE
 import com.worklogai.app.app.navigation.ENTRY_DATE_ARGUMENT
@@ -225,15 +227,21 @@ private fun WorkLogNavHost(
         composable(DATA_MANAGEMENT_ROUTE) {
             DataManagementScreen(
                 onRestoreCompleted = {
-                    navController.navigate(TopLevelDestination.TODAY.route) {
-                        popUpTo(TopLevelDestination.TODAY.route) { inclusive = false }
-                        launchSingleTop = true
-                    }
+                    navController.navigate(
+                        TopLevelDestination.TODAY.route,
+                        restoreCompletionNavOptions(),
+                    )
                 },
             )
         }
     }
 }
+
+internal fun restoreCompletionNavOptions(): NavOptions =
+    navOptions {
+        popUpTo(TopLevelDestination.TODAY.route) { inclusive = true }
+        launchSingleTop = true
+    }
 
 private fun NavHostController.navigateToTopLevelDestination(destination: TopLevelDestination) {
     navigate(destination.route) {

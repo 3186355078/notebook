@@ -17,9 +17,9 @@ WorkLog AI 是一款面向个人使用的 Android 工作日志应用。它以本
 - “今天”右上角可进入设置页，并可返回。
 - 界面跟随系统浅色/深色模式，支持系统字体缩放和边到边显示。
 
-设备仪器测试尚未完成；当前 ADB 环境不可用，Android Compose 测试仅完成源码编译，未声称已在设备执行。
+当前 ADB 环境已恢复。Android 16 / API 36 的 HONOR PPG-AN00 真机已实际执行 41/41 个 Instrumentation 方法，failures、errors、skipped 均为 0；设备序列号不进入文档。Android 10～13 第二台真机或模拟器专项兼容测试按用户明确要求跳过，该项未执行、不宣称通过。
 
-阶段 4 已通过工程验证与测试矩阵验收：70 个 JVM/Robolectric 测试、APK、Android Test 编译、Lint、Detekt 与 ktlint 均成功。FileStore 覆盖 JPEG/PNG、EXIF、缩放、原子写入失败、路径边界和孤儿清理；图片说明和表格 Draft 覆盖防抖、失败保留、重试、flush、排序与删除。设备仪器测试仍受 ADB 环境限制，尚未执行。
+阶段 4 当时已通过工程验证与测试矩阵验收：70 个 JVM/Robolectric 测试、APK、Android Test 编译、Lint、Detekt 与 ktlint 均成功。FileStore 覆盖 JPEG/PNG、EXIF、缩放、原子写入失败、路径边界和孤儿清理；图片说明和表格 Draft 覆盖防抖、失败保留、重试、flush、排序与删除。其后阶段 9 已补充上述 Android 16 真机矩阵。
 
 ## 今天页自动保存
 
@@ -222,4 +222,31 @@ git grep -n -I -E "(sk-[A-Za-z0-9_-]{16,}|api[_-]?key[[:space:]]*[=:][[:space:]]
 .\gradlew.bat --offline --no-daemon :app:detekt :app:ktlintCheck --rerun-tasks --no-build-cache
 ```
 
-当前强制回归实际执行 201 个 JVM/Robolectric 测试，failure/error/skipped 均为 0；Android Compose 测试源码共 16 个方法并编译通过。ADB 不可用，因此 SAF、Keystore、通知、Worker 和恢复流程的设备测试仍未执行。
+阶段 8 封版时的强制回归实际执行 201 个 JVM/Robolectric 测试，failure/error/skipped 均为 0；Android Compose 测试源码共 16 个方法并编译通过。当时 ADB 不可用，相关设备流程随后已在阶段 9 的 Android 16 真机矩阵中补齐。
+
+## 阶段 9：内部试用 Release
+
+阶段 9 已建立本地 Git 基线，并在 HONOR PPG-AN00（Android 16 / API 36）真机完成 41/41 个 Instrumentation 测试及 TEXT、IMAGE、TABLE、历史搜索、Mock 周/月报、Keystore、SAF、通知深链、WorkManager、损坏备份、restore journal、跨午夜/时区、50×8 表格和 1,000 条日志矩阵。当前 JVM/Robolectric 基线为 213/213，其中包含恢复完成后必须重建 Today 目的地的回归测试。设备序列号、测试密钥和工作正文不进入报告。
+
+用户明确跳过 Android 10～13 第二台真机和模拟器兼容测试；该项未执行、不宣称通过，作为 0.1.0 内部试用风险接受。旧设备用户应重点反馈 Photo Picker/兼容选择器、SAF、通知和 OEM 后台调度。
+
+内部 Release 为 versionName 0.1.0、versionCode 1，Release 启用 R8 与资源压缩，禁止明文网络和 Android 系统备份。签名 Keystore 必须位于仓库外，四个 `WORKLOG_RELEASE_*` 环境变量只在当前构建进程中存在。Debug 构建不需要 Release 密钥；Release 配置缺失时会安全失败。
+
+在用户已准备仓库外 Keystore 后，可在本地交互执行：
+
+```powershell
+.\tools\release-build.ps1
+```
+
+脚本不会把密码写入命令行、文件或报告。最终构建完成并验证后运行 `tools/package-release.ps1`，把 APK、AAB、SHA-256、Release 报告和 R8 mapping 归档到已被 Git 忽略的 `release-artifacts/0.1.0/`。
+
+最终提交后可交互运行 `tools/verify-clean-release.ps1`。它从本地仓库创建临时干净克隆，只写入临时 SDK 路径，强制无缓存执行 213 个 JVM 测试、Release Lint、APK/AAB 构建及签名验证；成功后清除签名环境变量和临时克隆，不复制 API Key、用户数据或构建缓存。
+
+发布与试用文档：
+
+- [PRIVACY.md](PRIVACY.md)：本地数据、AI、API Key、备份和通知隐私边界。
+- [CHANGELOG.md](CHANGELOG.md)：0.1.0 功能和已知限制。
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)：签名、测试、协议、产物和风险清单。
+- [INTERNAL_TESTING_GUIDE.md](INTERNAL_TESTING_GUIDE.md)：内部安装、使用和安全反馈方式。
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)：主要依赖版本与许可证。
+- [设备验收报告](docs/release/0.1.0/DEVICE_VALIDATION_REPORT.md)：已执行设备矩阵和兼容性豁免。
