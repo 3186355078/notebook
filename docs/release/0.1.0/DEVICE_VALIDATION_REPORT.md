@@ -6,7 +6,7 @@
 
 | 类型 | 设备 | Android / API | 分辨率 | 语言 | 结果 |
 | --- | --- | --- | --- | --- | --- |
-| 真实设备 | HONOR PPG-AN00 | Android 16 / API 36 | 1264×2800 | zh-Hans-CN | 完整 Debug 关卡 B 通过；预封版 Release 冒烟通过，最终提交构建待复核 |
+| 真实设备 | HONOR PPG-AN00 | Android 16 / API 36 | 1264×2800 | zh-Hans-CN | 完整 Debug 关卡 B 与签名 R8 Release 冒烟通过 |
 
 报告不记录设备序列号。
 
@@ -42,12 +42,12 @@
 
 ## Release R8 冒烟
 
-- 签名 Release 已全新安装；冷启动 `TotalTime` 约 143 ms。
+- 签名 Release 已全新安装；两次冷启动 `TotalTime` 约 143 ms 和 158 ms。
 - TEXT、IMAGE、TABLE、历史、搜索、Mock 周报/月报、Keystore 和 WorkManager 已验证。
 - Markdown 日志/周报/月报通过系统 Downloads 导出并检查内部数据排除。
 - 完整备份已通过 SAF 创建，包含 7 个协议条目和 1 个受控图片条目；Preview、完整替换、恢复后的历史/图片/表格/周报/月报读取及强停重启均通过。
 - Release 自动周报实际发布 PRIVATE 通知“周报已生成”，正文仅包含 7月13日—7月19日周期、不包含工作正文；从通知栏点击后准确打开 WEEKLY 对应周期。
-- 恢复完成后首次回到 Today 曾出现一次可重试的加载失败；根因为导航复用恢复前 Today ViewModel，已改为弹出旧目的地后重建，并新增 JVM 回归测试。最终签名包需复核该路径不再出现。
+- 恢复完成后首次回到 Today 曾出现一次可重试的加载失败；根因为导航复用恢复前 Today ViewModel，已改为弹出旧目的地后重建并新增 JVM 回归测试。最终签名包已再次通过 SAF Preview/Restore：首次返回 Today 无加载失败，历史立即显示 3 个有效日期，图片/表格记录与已恢复周报可读取，强停重启后数据仍保持。
 - 当前未观察到应用进程 FATAL、ANR、OOM、Room、Hilt、WorkerFactory、Serialization 或 Keystore 异常。
 
 ## 已知限制

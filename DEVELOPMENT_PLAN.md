@@ -147,14 +147,14 @@ Room database version 与备份协议版本继续分别为 1，Schema 未变化�
 
 ## 阶段 9：真机验收、Release 与内部试用
 
-状态：`[ ]` 关卡 A、B 已通过；关卡 C 正在执行最终 Release 封版。
+状态：`[x]` 关卡 A、B、C 已通过，0.1.0 内部试用版完成封版。
 
 - [x] 建立本地 Git 初始基线和干净克隆强制无缓存 Debug 构建；未 push、未修改远程。
 - [x] Android 16 / API 36 HONOR 真机完成 41/41 个 Instrumentation 方法及 SAF、Keystore、通知、WorkManager、恢复、生命周期和性能矩阵。
 - [x] JVM/Robolectric 增至 213/213，failures/errors/skipped 均为 0；新增恢复后导航重建回归测试；Lint、Detekt、ktlint 通过。
 - [x] 用户明确豁免 Android 10～13 第二设备/模拟器专项测试；该项未执行、不宣称通过。
 - [x] versionName 0.1.0、versionCode 1；仓库外 Keystore、环境变量签名、R8、资源压缩和安全失败策略。
-- [ ] Release APK/AAB 最终提交后重建、签名验证、真机冒烟、干净克隆 Release 构建和本地 Tag。
+- [x] Release APK/AAB 最终提交后重建、签名验证、真机冒烟、干净克隆 Release 构建和本地 Tag。
 - [x] 隐私说明、变更日志、许可证、发布清单、内部试用指南、Bug 模板和设备验收报告。
 
 阶段 9 不增加主业务功能，不 push、不上传应用商店。全部完成后进入内部试用观察期，只优先处理崩溃、ANR、数据丢失、兼容性和安全阻断问题。

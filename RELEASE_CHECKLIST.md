@@ -5,9 +5,9 @@
 - [x] 分支为 `main`。
 - [x] 初始基线提交为 `e52a7f7e50aa4ce30ee6539114ea67d69447ebd1`。
 - [x] 关卡 B 硬化提交为 `ca35567`。
-- [ ] 发布准备提交和本地 `v0.1.0-internal` annotated Tag 已创建。
+- [x] 发布准备提交 `91bce24` 和本地 `v0.1.0-internal` annotated Tag 已创建。
 - [x] 未 push，未修改远程，未上传应用商店。
-- [ ] 最终工作区、Git 空白和敏感信息扫描通过。
+- [x] 最终工作区、Git 空白和敏感信息扫描通过。
 
 ## 测试与构建
 
@@ -17,7 +17,7 @@
 - [x] Release Lint：0 errors；保留 29 个不阻断 warning。
 - [x] Release APK/AAB 已由用户完成一次签名构建。
 - [x] R8 和资源压缩启用。
-- [ ] 最终提交后强制无缓存 Release 构建和干净克隆构建通过。
+- [x] 最终提交后强制无缓存 Release 构建和干净克隆构建通过。
 
 ## 数据协议
 
@@ -39,9 +39,9 @@
 
 ## Release 产物
 
-- [ ] 最终提交对应的 APK、AAB、SHA-256 和 R8 mapping 已生成并归档。
+- [x] 最终提交对应的 APK、AAB、SHA-256 和 R8 mapping 已生成并归档。
 - [x] `release-artifacts/`、APK、AAB 和 R8 输出均被 Git 忽略。
-- [ ] Release 真机完整冒烟和最终日志检查通过。
+- [x] Release 真机完整冒烟和最终日志检查通过。
 
 ## Manifest 与权限
 
@@ -54,7 +54,7 @@
 
 - [x] `PRIVACY.md`、`CHANGELOG.md`、`INTERNAL_TESTING_GUIDE.md`、`THIRD_PARTY_NOTICES.md`。
 - [x] Bug Report 模板和设备验收报告。
-- [ ] 最终 `SHA256SUMS.txt` 与 `RELEASE_REPORT.txt` 已生成到忽略目录。
+- [x] 最终 `SHA256SUMS.txt` 与 `RELEASE_REPORT.txt` 已生成到忽略目录。
 
 ## 风险接受
 
