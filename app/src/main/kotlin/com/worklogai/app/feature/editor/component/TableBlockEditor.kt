@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -22,6 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableRow
 import com.worklogai.app.feature.editor.TableBlockUiModel
@@ -35,10 +37,19 @@ fun TableBlockEditor(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val content = block.content
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    WorkLogContentSurface(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(WorkLogSpacing.medium),
+            verticalArrangement =
+                androidx.compose.foundation.layout.Arrangement
+                    .spacedBy(WorkLogSpacing.small),
+        ) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Text("表格", modifier = Modifier.weight(1f))
+                WorkLogSectionHeader(
+                    title = "表格",
+                    description = "${content.rows.size} 行 × ${content.columns.size} 列，可横向滚动",
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "更多表格操作")
                 }
@@ -48,6 +59,7 @@ fun TableBlockEditor(
                 value = content.title.orEmpty(),
                 onValueChange = callbacks.onTitleChanged,
                 label = { Text("表格标题（可选）") },
+                shape = androidx.compose.material3.MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().testTag("table_title_${block.id}"),
             )
             Column(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {

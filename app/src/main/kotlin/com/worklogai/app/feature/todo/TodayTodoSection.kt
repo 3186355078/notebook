@@ -1,33 +1,40 @@
 package com.worklogai.app.feature.todo
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Pending
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -38,6 +45,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,6 +66,11 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
+import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.theme.WorkLogElevation
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.model.DailyTodo
 import com.worklogai.app.core.model.TodoPriority
 import com.worklogai.app.core.model.TodoStatus
@@ -74,34 +87,29 @@ fun TodayTodoSection(
     onAction: (TodayTodoAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    Column(
         modifier = modifier.fillMaxWidth().testTag("today_todo_section"),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            TodoSectionHeader(state)
-            QuickTodoInput(state, onAction)
-            if (state.olderIncomplete.isNotEmpty()) {
-                OlderTodoBanner(state, onAction)
-            }
-            TodoListContent(state, onAction)
-            TextButton(
-                onClick = { onAction(TodayTodoAction.OpenEditor()) },
-                enabled = !state.isBusy,
-                modifier = Modifier.align(Alignment.End).testTag("open_full_todo_editor"),
-            ) {
-                Icon(Icons.Outlined.Add, contentDescription = null)
-                Text("详细添加")
-            }
-            Text(
-                "待办仅保存在本地；同步为工作记录后，才可能按 AI 设置参与总结。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
+        TodoSectionHeader(state)
+        QuickTodoInput(state, onAction)
+        if (state.olderIncomplete.isNotEmpty()) {
+            OlderTodoBanner(state, onAction)
         }
+        TodoListContent(state, onAction)
+        TextButton(
+            onClick = { onAction(TodayTodoAction.OpenEditor()) },
+            enabled = !state.isBusy,
+            modifier = Modifier.align(Alignment.End).testTag("open_full_todo_editor"),
+        ) {
+            Icon(Icons.Outlined.Add, contentDescription = null)
+            Text("详细添加")
+        }
+        Text(
+            "待办仅保存在本地；同步为工作记录后，才可能按 AI 设置参与总结。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 
     TodoDialogs(state, onAction)
@@ -109,25 +117,18 @@ fun TodayTodoSection(
 
 @Composable
 private fun TodoSectionHeader(state: TodayTodoUiState) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("今日待办", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "已完成 ${state.doneCount}/${state.todos.size} · 进行中 ${state.inProgressCount}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
+    Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
+        WorkLogSectionHeader(
+            title = "今日待办",
+            description = "已完成 ${state.doneCount}/${state.todos.size} · 进行中 ${state.inProgressCount}",
+            trailing = {
+                WorkLogStatusChip(
+                    label = "${(state.completionFraction * PERCENT_MULTIPLIER).toInt()}%",
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-            }
-            Text(
-                "${(state.completionFraction * PERCENT_MULTIPLIER).toInt()}%",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
+            },
+        )
         LinearProgressIndicator(
             progress = { state.completionFraction },
             modifier =
@@ -167,10 +168,11 @@ private fun OlderTodoBanner(
     state: TodayTodoUiState,
     onAction: (TodayTodoAction) -> Unit,
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    WorkLogContentSurface(emphasized = true) {
+        Column(
+            modifier = Modifier.padding(WorkLogSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
+        ) {
             Text("有 ${state.olderIncomplete.size} 项未完成待办", style = MaterialTheme.typography.titleSmall)
             state.olderIncomplete.take(OLDER_TODO_PREVIEW_LIMIT).forEach { todo ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -210,10 +212,19 @@ internal fun TodoItem(
     var dragDistance by remember(todo.id) { mutableFloatStateOf(0f) }
     val containerColor by
         animateColorAsState(
-            if (isDragging) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            if (isDragging) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
             label = "todo-drag-color",
         )
-    Card(
+    val elevation by
+        animateDpAsState(
+            targetValue = if (isDragging) WorkLogElevation.dragging else WorkLogElevation.flat,
+            label = "todo-drag-elevation",
+        )
+    Surface(
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -244,13 +255,23 @@ internal fun TodoItem(
                             },
                         )
                 },
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDragging) 4.dp else 0.dp),
+        color = containerColor,
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = elevation,
+        shadowElevation = elevation,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxHeight()
+                        .width(4.dp)
+                        .background(todoPriorityColor(todo.priority)),
+            )
             IconButton(
                 onClick = { onAction(TodayTodoAction.ToggleDone(todo.id)) },
                 modifier =
@@ -264,21 +285,27 @@ internal fun TodoItem(
                     },
             ) {
                 Icon(
-                    if (todo.status == TodoStatus.DONE) {
-                        Icons.Outlined.CheckCircle
-                    } else {
-                        Icons.Outlined.RadioButtonUnchecked
-                    },
+                    imageVector =
+                        when (todo.status) {
+                            TodoStatus.NOT_STARTED -> Icons.Outlined.RadioButtonUnchecked
+                            TodoStatus.IN_PROGRESS -> Icons.Outlined.Pending
+                            TodoStatus.DONE -> Icons.Outlined.CheckCircle
+                            TodoStatus.CANCELED -> Icons.Outlined.Cancel
+                        },
                     contentDescription = null,
                     tint =
-                        if (todo.status == TodoStatus.DONE) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                        when (todo.status) {
+                            TodoStatus.NOT_STARTED -> MaterialTheme.colorScheme.onSurfaceVariant
+                            TodoStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
+                            TodoStatus.DONE -> MaterialTheme.colorScheme.primary
+                            TodoStatus.CANCELED -> MaterialTheme.colorScheme.outline
                         },
                 )
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(
+                modifier = Modifier.weight(1f).padding(vertical = WorkLogSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
+            ) {
                 Text(
                     todo.title,
                     maxLines = 2,
@@ -312,7 +339,11 @@ internal fun TodoItem(
                 ) {
                     PriorityBadge(todo.priority)
                     if (todo.status == TodoStatus.IN_PROGRESS || todo.status == TodoStatus.CANCELED) {
-                        Text(todo.status.chineseLabel, style = MaterialTheme.typography.labelMedium)
+                        WorkLogStatusChip(
+                            label = todo.status.chineseLabel,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     if (todo.linkedContentBlockId != null) {
                         AssistChip(

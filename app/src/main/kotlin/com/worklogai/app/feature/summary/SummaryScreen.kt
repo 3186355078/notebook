@@ -10,10 +10,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -35,6 +41,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
+import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.history.DateRange
 import com.worklogai.app.core.model.SummaryType
 import java.time.format.DateTimeFormatter
@@ -107,10 +117,18 @@ internal fun SummaryContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(WorkLogSpacing.largePlus),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.large),
     ) {
-        Text("工作总结", style = MaterialTheme.typography.titleLarge)
+        WorkLogPageHeader(
+            eyebrow = "AI 工作回顾",
+            title = "工作总结",
+            subtitle = "聚焦已结束周期，阅读、编辑或重新生成你的周报与月报",
+        )
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             SummaryType.entries.forEachIndexed { index, type ->
                 SegmentedButton(
@@ -125,7 +143,14 @@ internal fun SummaryContent(
                 )
             }
         }
-        PeriodControls(state.summaryType, state.period, onAction)
+        WorkLogContentSurface {
+            Column(
+                modifier = Modifier.padding(WorkLogSpacing.medium),
+                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
+            ) {
+                PeriodControls(state.summaryType, state.period, onAction)
+            }
+        }
         Text("将发送该时间范围内允许用于 AI 总结的文字、图片说明和表格内容。", style = MaterialTheme.typography.bodySmall)
         if (state.isLoading) {
             CircularProgressIndicator()
@@ -134,8 +159,22 @@ internal fun SummaryContent(
                 "共 ${state.entryCount} 条记录，其中 ${state.eligibleEntryCount} 条可用于 AI 总结",
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (state.isOutdated) Text("原工作记录已更新，建议重新生成", color = MaterialTheme.colorScheme.tertiary)
-            if (state.wasInputTruncated) Text("部分过长内容未纳入总结", color = MaterialTheme.colorScheme.tertiary)
+            Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
+                if (state.isOutdated) {
+                    WorkLogStatusChip(
+                        label = "原记录已更新",
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                }
+                if (state.wasInputTruncated) {
+                    WorkLogStatusChip(
+                        label = "部分内容已截断",
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                }
+            }
             when (val generation = state.generationState) {
                 is SummaryGenerationState.Failed -> {
                     Text(generation.message, color = MaterialTheme.colorScheme.error)
@@ -172,7 +211,15 @@ internal fun SummaryContent(
                 }
             } else {
                 state.displayContent?.let { content ->
-                    SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge) }
+                    WorkLogContentSurface {
+                        SelectionContainer {
+                            Text(
+                                content,
+                                modifier = Modifier.padding(WorkLogSpacing.large),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                    }
                 }
             }
             SummaryActions(state, onAction)
@@ -229,7 +276,12 @@ private fun SummaryActions(
     state: SummaryUiState,
     onAction: (SummaryAction) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    var overflowExpanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         when (state.generationState) {
             SummaryGenerationState.Generating ->
                 Button(
@@ -253,14 +305,34 @@ private fun SummaryActions(
                 }
         }
         if (!state.displayContent.isNullOrBlank() && !state.isEditing) {
-            TextButton(onClick = { onAction(SummaryAction.CopySummary) }) { Text("复制") }
             TextButton(onClick = { onAction(SummaryAction.StartEditing) }) { Text("编辑") }
+            Box {
+                IconButton(onClick = { overflowExpanded = true }) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "更多总结操作")
+                }
+                DropdownMenu(
+                    expanded = overflowExpanded,
+                    onDismissRequest = { overflowExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("复制") },
+                        onClick = {
+                            overflowExpanded = false
+                            onAction(SummaryAction.CopySummary)
+                        },
+                    )
+                    if (state.summary?.originalContent != null) {
+                        DropdownMenuItem(
+                            text = { Text("恢复 AI 原始版本") },
+                            onClick = {
+                                overflowExpanded = false
+                                onAction(SummaryAction.RestoreOriginal)
+                            },
+                        )
+                    }
+                }
+            }
         }
-    }
-    if (state.summary?.originalContent != null &&
-        !state.isEditing
-    ) {
-        TextButton(onClick = { onAction(SummaryAction.RestoreOriginal) }) { Text("恢复 AI 原始版本") }
     }
     if (state.generationState is SummaryGenerationState.Failed &&
         state.summary == null

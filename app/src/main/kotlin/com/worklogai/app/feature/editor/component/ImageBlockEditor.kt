@@ -1,16 +1,17 @@
 package com.worklogai.app.feature.editor.component
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -24,10 +25,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.feature.editor.ImageBlockUiModel
 import java.io.File
 
@@ -41,10 +46,17 @@ fun ImageBlockEditor(
     var menuExpanded by remember { mutableStateOf(false) }
     var previewVisible by remember { mutableStateOf(false) }
     val imageFile = block.relativePath?.let { File(LocalContext.current.filesDir, "attachments/$it") }
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    WorkLogContentSurface(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(WorkLogSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
+        ) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Text("图片", modifier = Modifier.weight(1f))
+                WorkLogSectionHeader(
+                    title = "图片",
+                    description = "添加说明，让图片在历史与总结中更容易识别",
+                    modifier = Modifier.weight(1f),
+                )
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "更多图片操作")
                 }
@@ -55,7 +67,12 @@ fun ImageBlockEditor(
                     model = imageFile,
                     contentDescription = "查看大图",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp).clickable { previewVisible = true },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .clip(RoundedCornerShape(WorkLogSpacing.medium))
+                            .clickable { previewVisible = true },
                 )
             } else {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
@@ -68,6 +85,7 @@ fun ImageBlockEditor(
                 onValueChange = onCaptionChanged,
                 label = { Text("图片说明（可选）") },
                 minLines = 2,
+                shape = androidx.compose.material3.MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

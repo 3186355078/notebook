@@ -5,14 +5,12 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -22,7 +20,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -34,7 +31,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -44,6 +40,12 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.R
 import com.worklogai.app.core.designsystem.component.EmptyState
+import com.worklogai.app.core.designsystem.component.WorkLogErrorState
+import com.worklogai.app.core.designsystem.component.WorkLogLoadingState
+import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
+import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
+import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.feature.editor.component.BlockControls
 import com.worklogai.app.feature.editor.component.DeleteBlockDialog
 import com.worklogai.app.feature.editor.component.ImageBlockEditor
@@ -238,23 +240,20 @@ private fun FuturePlanningContent(
     LazyColumn(
         contentPadding =
             PaddingValues(
-                start = 20.dp,
-                top = 16.dp,
-                end = 20.dp,
-                bottom = 24.dp + paddingValues.calculateBottomPadding(),
+                start = WorkLogSpacing.largePlus,
+                top = WorkLogSpacing.large,
+                end = WorkLogSpacing.largePlus,
+                bottom = WorkLogSpacing.extraLarge + paddingValues.calculateBottomPadding(),
             ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.large),
         modifier = Modifier.fillMaxSize(),
     ) {
         item(key = "future_header") {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(state.date.format(dateFormatter), style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "未来日期仅用于规划待办，不能提前创建工作记录。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+            WorkLogPageHeader(
+                eyebrow = "未来计划",
+                title = state.date.format(dateFormatter),
+                subtitle = "未来日期仅用于规划待办，不能提前创建工作记录。",
+            )
         }
         item(key = "future_todos") {
             TodayTodoSection(todoState, onTodoAction)
@@ -278,16 +277,17 @@ private fun TodayEntryList(
         state = listState,
         contentPadding =
             PaddingValues(
-                start = 20.dp,
-                top = 16.dp,
-                end = 20.dp,
-                bottom = 24.dp + paddingValues.calculateBottomPadding(),
+                start = WorkLogSpacing.largePlus,
+                top = WorkLogSpacing.large,
+                end = WorkLogSpacing.largePlus,
+                bottom = WorkLogSpacing.extraLarge + paddingValues.calculateBottomPadding(),
             ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.large),
         modifier = Modifier.fillMaxSize(),
     ) {
         item(key = "today_header") {
             TodayHeader(
+                date = state.date,
                 title =
                     if (state.followsCurrentDate) {
                         null
@@ -295,6 +295,8 @@ private fun TodayEntryList(
                         state.date.format(dateFormatter)
                     },
                 dateText = state.date.format(dateFormatter),
+                todoState = todoState,
+                blockCount = state.blocks.size,
                 saveState = state.saveState,
                 onRetrySave = { onAction(TodayAction.RetryFailedSaves) },
             )
@@ -356,11 +358,14 @@ private fun QuickRecordToolbar(
     onAddImage: () -> Unit,
     onAddTable: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("快速记录", style = MaterialTheme.typography.titleMedium)
+    Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
+        WorkLogSectionHeader(
+            title = "快速记录",
+            description = "从文字、图片或表格开始记录今天的工作",
+        )
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
         ) {
             OutlinedButton(onClick = onAddText) {
                 androidx.compose.material3.Icon(Icons.Outlined.Add, contentDescription = "添加文字")
@@ -375,6 +380,10 @@ private fun QuickRecordToolbar(
                 Text("表格", modifier = Modifier.padding(start = 6.dp))
             }
         }
+        WorkLogSectionHeader(
+            title = "今日工作记录",
+            description = "内容会自动保存在当前日期",
+        )
     }
 }
 
@@ -456,17 +465,30 @@ private data class EditorBlockPresentation(
 
 @Composable
 private fun TodayHeader(
+    date: LocalDate,
     title: String?,
     dateText: String,
+    todoState: TodayTodoUiState,
+    blockCount: Int,
     saveState: SaveState,
     onRetrySave: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        title?.let { Text(text = it, style = MaterialTheme.typography.headlineSmall) }
-        Text(
-            text = dateText,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
+    Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
+        WorkLogPageHeader(
+            eyebrow = if (title == null) "今天" else "固定日期",
+            title = title ?: "${date.dayOfMonth}日",
+            subtitle =
+                "$dateText · 待办 ${todoState.doneCount}/${todoState.todos.size}" +
+                    " · 工作记录 $blockCount 条",
+            metrics = {
+                if (todoState.inProgressCount > 0) {
+                    WorkLogStatusChip(
+                        label = "进行中 ${todoState.inProgressCount}",
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                }
+            },
         )
         SaveStatusIndicator(saveState = saveState, onRetry = onRetrySave)
     }
@@ -474,12 +496,10 @@ private fun TodayHeader(
 
 @Composable
 private fun LoadingContent(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            CircularProgressIndicator(modifier = Modifier.size(28.dp))
-            Text(stringResource(R.string.today_loading), style = MaterialTheme.typography.bodyMedium)
-        }
-    }
+    WorkLogLoadingState(
+        label = stringResource(R.string.today_loading),
+        modifier = modifier.fillMaxSize(),
+    )
 }
 
 @Composable
@@ -488,14 +508,10 @@ private fun LoadErrorContent(
     onAction: (TodayAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    EmptyState(
+    WorkLogErrorState(
         title = state.errorMessage ?: "工作记录加载失败",
         body = stringResource(R.string.today_empty_body),
-        action = {
-            Button(onClick = { onAction(TodayAction.RetryLoad) }) {
-                Text(stringResource(R.string.today_retry))
-            }
-        },
+        onRetry = { onAction(TodayAction.RetryLoad) },
         modifier = modifier.fillMaxSize(),
     )
 }

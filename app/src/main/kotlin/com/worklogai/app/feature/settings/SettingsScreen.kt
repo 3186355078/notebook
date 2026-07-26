@@ -16,11 +16,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DataObject
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,7 +49,11 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.BuildConfig
+import com.worklogai.app.core.designsystem.component.WorkLogActionRow
+import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogSection
+import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -105,14 +112,32 @@ internal fun SettingsContent(
 ) {
     var showApiKey by remember { mutableStateOf(false) }
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(WorkLogSpacing.largePlus),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraLarge),
     ) {
+        WorkLogPageHeader(
+            eyebrow = "偏好与安全",
+            title = "设置",
+            subtitle = "集中管理外观、AI 服务、自动总结与本地数据",
+        )
         WorkLogSection(
             title = "外观",
             description = "跟随系统浅色/深色模式；Android 12 及以上默认使用系统动态配色。",
         ) {
-            Text("主题与系统保持一致，优先级同时使用文字和图标区分。")
+            WorkLogActionRow(
+                icon = Icons.Outlined.Palette,
+                title = "系统主题",
+                summary = "主题跟随系统；优先级同时使用文字、图标与局部颜色区分",
+                onClick = {},
+                enabled = false,
+                trailing = {
+                    WorkLogStatusChip(label = "自动")
+                },
+            )
         }
         WorkLogSection(title = "AI 服务") {
             ProviderModeControl(state, onAction)
@@ -126,11 +151,13 @@ internal fun SettingsContent(
             AutoSummarySection(state, onAction)
         }
         WorkLogSection(title = "数据管理") {
-            Text("导出 Markdown，或创建和恢复包含待办的完整本地备份。")
-            TextButton(
+            WorkLogActionRow(
+                icon = Icons.Outlined.DataObject,
+                title = "导出、备份与恢复",
+                summary = "导出 Markdown，或管理包含待办的完整本地备份",
                 onClick = onOpenDataManagement,
                 modifier = Modifier.semantics { contentDescription = "数据管理" },
-            ) { Text("打开数据管理") }
+            )
         }
         WorkLogSection(title = "隐私与安全") {
             Text(
@@ -159,7 +186,10 @@ private fun ProviderModeControl(
     state: AiSettingsUiState,
     onAction: (AiSettingsAction) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = WorkLogSpacing.small),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
         Column(Modifier.weight(1f)) {
             Text("使用模拟服务", style = MaterialTheme.typography.titleMedium)
             Text("无需 API Key，可完整演示周报和月报生成。", style = MaterialTheme.typography.bodySmall)
@@ -187,6 +217,7 @@ private fun ProviderConfiguration(
         label = { Text("Base URL") },
         placeholder = { Text("https://example.com/v1") },
         singleLine = true,
+        shape = MaterialTheme.shapes.medium,
     )
     OutlinedTextField(
         value = state.settings.model,
@@ -195,6 +226,7 @@ private fun ProviderConfiguration(
         modifier = Modifier.fillMaxWidth(),
         label = { Text("模型名称") },
         singleLine = true,
+        shape = MaterialTheme.shapes.medium,
     )
     OutlinedTextField(
         value = state.apiKeyInput,
@@ -204,6 +236,7 @@ private fun ProviderConfiguration(
         label = { Text(if (state.hasApiKey) "API Key（已配置）" else "API Key") },
         placeholder = { Text(if (state.hasApiKey) "留空则保留已保存的密钥" else "输入后安全保存") },
         singleLine = true,
+        shape = MaterialTheme.shapes.medium,
         visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
@@ -228,6 +261,7 @@ private fun ProviderConfiguration(
         supportingText = { Text("10—120 秒") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
+        shape = MaterialTheme.shapes.medium,
     )
 }
 
@@ -237,7 +271,10 @@ private fun SettingsActions(
     onAction: (AiSettingsAction) -> Unit,
 ) {
     state.errorMessage?.let { message -> Text(message, color = MaterialTheme.colorScheme.error) }
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
+    ) {
         Button(onClick = { onAction(AiSettingsAction.Save) }, enabled = !state.isSaving && !state.isLoading) {
             if (state.isSaving) {
                 CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
@@ -250,7 +287,7 @@ private fun SettingsActions(
         ) { Text(if (state.isTestingConnection) "正在测试…" else "测试连接") }
     }
     if (state.hasApiKey) {
-        Button(onClick = { onAction(AiSettingsAction.DeleteApiKey) }, enabled = !state.isLoading) {
+        TextButton(onClick = { onAction(AiSettingsAction.DeleteApiKey) }, enabled = !state.isLoading) {
             Text("删除 API Key")
         }
     }
@@ -320,16 +357,26 @@ private fun SettingSwitchRow(
     descriptionForAccessibility: String,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodySmall)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = WorkLogSpacing.small),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    description,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                modifier = Modifier.semantics { contentDescription = descriptionForAccessibility },
+            )
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.semantics { contentDescription = descriptionForAccessibility },
-        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
 }
 

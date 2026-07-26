@@ -1,8 +1,9 @@
 package com.worklogai.app.feature.todo
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
 import com.worklogai.app.core.model.TodoPriority
 import com.worklogai.app.core.model.TodoStatus
 
@@ -42,16 +43,19 @@ internal fun TodoPriority.lower(): TodoPriority? =
 
 @Composable
 internal fun PriorityBadge(priority: TodoPriority) {
-    val color =
-        when (priority) {
-            TodoPriority.URGENT -> MaterialTheme.colorScheme.error
-            TodoPriority.HIGH -> MaterialTheme.colorScheme.tertiary
-            TodoPriority.MEDIUM -> MaterialTheme.colorScheme.primary
-            TodoPriority.LOW -> MaterialTheme.colorScheme.outline
-        }
-    Text(
-        "● ${priority.chineseLabel}",
-        color = color,
-        style = MaterialTheme.typography.labelMedium,
+    val color = todoPriorityColor(priority)
+    WorkLogStatusChip(
+        label = "${priority.chineseLabel}优先级",
+        containerColor = color.copy(alpha = 0.12f),
+        contentColor = color,
     )
 }
+
+@Composable
+internal fun todoPriorityColor(priority: TodoPriority): Color =
+    when (priority) {
+        TodoPriority.URGENT -> MaterialTheme.colorScheme.error
+        TodoPriority.HIGH -> MaterialTheme.colorScheme.tertiary
+        TodoPriority.MEDIUM -> MaterialTheme.colorScheme.primary
+        TodoPriority.LOW -> MaterialTheme.colorScheme.outline
+    }

@@ -156,6 +156,7 @@ fun WorkLogActionRow(
     summary: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
@@ -163,7 +164,7 @@ fun WorkLogActionRow(
             modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 64.dp)
-                .clickable(onClick = onClick)
+                .clickable(enabled = enabled, onClick = onClick)
                 .padding(vertical = WorkLogSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
