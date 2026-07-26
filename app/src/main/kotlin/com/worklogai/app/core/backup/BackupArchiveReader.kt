@@ -6,11 +6,18 @@ import com.worklogai.app.core.database.codec.TableContentCodec
 import com.worklogai.app.core.history.WorkPeriodCalculator
 import com.worklogai.app.core.model.ContentBlockType
 import com.worklogai.app.core.model.SummaryType
+import com.worklogai.app.core.model.TODO_COMPLETION_NOTE_MAX_LENGTH
+import com.worklogai.app.core.model.TODO_NOTE_MAX_LENGTH
+import com.worklogai.app.core.model.TODO_TITLE_MAX_LENGTH
+import com.worklogai.app.core.model.TodoStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.time.DateTimeException
 import java.time.Instant
 import java.time.YearMonth
 import java.util.zip.ZipEntry
@@ -53,6 +60,9 @@ internal class BackupArchiveReader internal constructor(
         } catch (_: IllegalArgumentException) {
             temporaryFile.delete()
             ArchiveReadResult.Failure("备份文件格式不正确")
+        } catch (_: DateTimeException) {
+            temporaryFile.delete()
+            ArchiveReadResult.Failure("备份文件格式不正确")
         } catch (_: SerializationException) {
             temporaryFile.delete()
             ArchiveReadResult.Failure("备份文件格式不正确")
@@ -73,7 +83,7 @@ internal class BackupArchiveReader internal constructor(
             val entries = allEntries.filterNot(ZipEntry::isDirectory)
             val byName = entries.associateBy(ZipEntry::getName)
             val manifest =
-                BackupArchiveValidation.readJson<BackupManifest>(
+                BackupArchiveValidation.readManifest(
                     zip,
                     BackupArchivePaths.run { byName.required(BackupArchiveContract.MANIFEST_FILE) },
                     safetyLimits.maxJsonSizeBytes,
@@ -106,6 +116,15 @@ internal class BackupArchiveReader internal constructor(
                         BackupArchivePaths.run { byName.required(BackupArchiveContract.SETTINGS_FILE) },
                         safetyLimits.maxJsonSizeBytes,
                     ),
+                    if (manifest.formatVersion >= BACKUP_FORMAT_VERSION) {
+                        BackupArchiveValidation.readJson(
+                            zip,
+                            BackupArchivePaths.run { byName.required(BackupArchiveContract.TODOS_FILE) },
+                            safetyLimits.maxJsonSizeBytes,
+                        )
+                    } else {
+                        emptyList()
+                    },
                 )
             validateDeclaredFiles(zip, byName, manifest)
             validatePayload(payload, manifest)
@@ -119,13 +138,26 @@ internal class BackupArchiveReader internal constructor(
 
     private fun validateManifest(manifest: BackupManifest) {
         require(manifest.formatName == BACKUP_FORMAT_NAME)
-        require(manifest.formatVersion == BACKUP_FORMAT_VERSION)
-        require(manifest.databaseVersion == WorkLogDatabase.VERSION)
+        require(manifest.formatVersion in MIN_SUPPORTED_BACKUP_FORMAT_VERSION..BACKUP_FORMAT_VERSION)
+        require(
+            when (manifest.formatVersion) {
+                1 -> manifest.databaseVersion == 1
+                BACKUP_FORMAT_VERSION -> manifest.databaseVersion == WorkLogDatabase.VERSION
+                else -> false
+            },
+        )
         Instant.parse(manifest.createdAt)
         require(manifest.entryCount in 0..safetyLimits.maxEntries)
         require(manifest.blockCount in 0..safetyLimits.maxBlocks)
         require(manifest.attachmentCount in 0..safetyLimits.maxAttachments)
         require(manifest.summaryCount in 0..safetyLimits.maxSummaries)
+        require(manifest.todoCount in 0..safetyLimits.maxTodos)
+        if (manifest.formatVersion == 1) {
+            require(manifest.todoCount == 0)
+            require(manifest.files.none { it.path == BackupArchiveContract.TODOS_FILE })
+        } else {
+            require(manifest.files.any { it.path == BackupArchiveContract.TODOS_FILE })
+        }
         require(
             manifest.files
                 .map(BackupFileManifest::path)
@@ -171,11 +203,13 @@ internal class BackupArchiveReader internal constructor(
         require(payload.blocks.size == manifest.blockCount)
         require(payload.attachments.size == manifest.attachmentCount)
         require(payload.summaries.size == manifest.summaryCount)
+        require(payload.todos.size == manifest.todoCount)
         BackupArchiveValidation.requireUnique(payload.entries.map(BackupWorkEntry::id))
         BackupArchiveValidation.requireUnique(payload.entries.map(BackupWorkEntry::entryDate))
         BackupArchiveValidation.requireUnique(payload.blocks.map(BackupContentBlock::id))
         BackupArchiveValidation.requireUnique(payload.attachments.map(BackupAttachment::id))
         BackupArchiveValidation.requireUnique(payload.summaries.map(BackupWorkSummary::id))
+        BackupArchiveValidation.requireUnique(payload.todos.map(BackupTodoItem::id))
         BackupArchiveValidation.requireUnique(
             payload.summaries.map { "${it.summaryType}:${it.periodStart}:${it.periodEnd}" },
         )
@@ -219,6 +253,7 @@ internal class BackupArchiveReader internal constructor(
         payload.entries.forEach { entry -> require(entry.toEntity().createdAt <= entry.toEntity().updatedAt) }
         payload.blocks.forEach { block -> require(block.toEntity().createdAt <= block.toEntity().updatedAt) }
         payload.summaries.forEach(::validateSummary)
+        payload.todos.forEach { todo -> validateTodo(todo, blocksById) }
         payload.settings.toAiSettings()
     }
 
@@ -287,9 +322,68 @@ internal class BackupArchiveReader internal constructor(
         entry.id.isNotBlank() &&
             entry.title.orEmpty().length <= MAX_TITLE_LENGTH &&
             entry.title.orEmpty().none { it.code < CONTROL_CHARACTER_LIMIT }
+
+    private fun validateTodo(
+        todo: BackupTodoItem,
+        blocksById: Map<String, BackupContentBlock>,
+    ) {
+        val entity = todo.toEntity()
+        require(entity.id.isNotBlank())
+        require(entity.title.isNotBlank() && entity.title == entity.title.trim())
+        require(entity.title.length <= TODO_TITLE_MAX_LENGTH)
+        require(entity.title.none(Char::isISOControl))
+        require(entity.note.orEmpty().length <= TODO_NOTE_MAX_LENGTH)
+        require(entity.completionNote.orEmpty().length <= TODO_COMPLETION_NOTE_MAX_LENGTH)
+        require(entity.note.isSafeMultilineText())
+        require(entity.completionNote.isSafeMultilineText())
+        require(entity.sortOrder >= 0)
+        require(
+            entity.linkedContentBlockId == null ||
+                blocksById[entity.linkedContentBlockId]?.blockType == ContentBlockType.TEXT.name,
+        )
+        require(entity.createdAt <= entity.updatedAt)
+        when (entity.status) {
+            TodoStatus.DONE -> {
+                require(entity.completedAt != null)
+                require(entity.completedAt >= entity.createdAt)
+                require(entity.completedAt <= entity.updatedAt)
+            }
+
+            TodoStatus.NOT_STARTED,
+            TodoStatus.IN_PROGRESS,
+            TodoStatus.CANCELED,
+            -> require(entity.completedAt == null)
+        }
+    }
 }
 
+private fun String?.isSafeMultilineText(): Boolean =
+    orEmpty().none { character ->
+        character.isISOControl() &&
+            character != '\n' &&
+            character != '\r' &&
+            character != '\t'
+    }
+
 internal object BackupArchiveValidation {
+    fun readManifest(
+        zip: ZipFile,
+        entry: ZipEntry,
+        maxSizeBytes: Long,
+    ): BackupManifest {
+        val jsonElement =
+            backupJson.parseToJsonElement(
+                zip
+                    .getInputStream(entry)
+                    .use {
+                        BackupArchiveStreams.readBytes(it, maxSizeBytes)
+                    }.decodeToString(),
+            )
+        val manifest = backupJson.decodeFromJsonElement<BackupManifest>(jsonElement)
+        require(manifest.formatVersion < BACKUP_FORMAT_VERSION || "todoCount" in jsonElement.jsonObject)
+        return manifest
+    }
+
     fun toPreview(
         manifest: BackupManifest,
         warningCount: Int,
@@ -301,6 +395,7 @@ internal object BackupArchiveValidation {
             attachmentCount = manifest.attachmentCount,
             summaryCount = manifest.summaryCount,
             warningCount = warningCount,
+            todoCount = manifest.todoCount,
         )
 
     inline fun <reified T> readJson(

@@ -154,12 +154,15 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `future day is rejected and current day remains selected`() {
+    fun `future day can be selected for todo planning`() {
         val before = viewModel.uiState.value.selectedDate
+        val future = before.plusDays(1)
 
-        viewModel.onAction(HistoryAction.SelectDate(before.plusDays(1)))
+        viewModel.onAction(HistoryAction.SelectDate(future))
+        mainDispatcherRule.dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(before, viewModel.uiState.value.selectedDate)
+        assertEquals(future, viewModel.uiState.value.selectedDate)
+        assertEquals(future to future, repository.rangeRequests.last())
     }
 
     @Test

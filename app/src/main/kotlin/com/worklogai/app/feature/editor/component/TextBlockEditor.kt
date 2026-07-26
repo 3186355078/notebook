@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -57,40 +58,12 @@ fun TextBlockEditor(
             Row(modifier = Modifier.fillMaxWidth()) {
                 androidx.compose.foundation.layout
                     .Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { menuExpanded = true }) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
-                        contentDescription = stringResource(R.string.today_more_actions),
-                    )
-                }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.today_move_up)) },
-                        onClick = {
-                            menuExpanded = false
-                            controls.onMoveUp()
-                        },
-                        enabled = controls.canMoveUp,
-                        leadingIcon = { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.today_move_down)) },
-                        onClick = {
-                            menuExpanded = false
-                            controls.onMoveDown()
-                        },
-                        enabled = controls.canMoveDown,
-                        leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.today_delete)) },
-                        onClick = {
-                            menuExpanded = false
-                            controls.onDelete()
-                        },
-                        leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
-                    )
-                }
+                TextBlockMenu(
+                    expanded = menuExpanded,
+                    canConvertToTodo = block.text.isNotBlank(),
+                    controls = controls,
+                    onExpandedChange = { menuExpanded = it },
+                )
             }
             OutlinedTextField(
                 value = block.text,
@@ -114,6 +87,60 @@ fun TextBlockEditor(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun TextBlockMenu(
+    expanded: Boolean,
+    canConvertToTodo: Boolean,
+    controls: BlockControls,
+    onExpandedChange: (Boolean) -> Unit,
+) {
+    IconButton(onClick = { onExpandedChange(true) }) {
+        Icon(
+            imageVector = Icons.Outlined.MoreVert,
+            contentDescription = stringResource(R.string.today_more_actions),
+        )
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.today_move_up)) },
+            onClick = {
+                onExpandedChange(false)
+                controls.onMoveUp()
+            },
+            enabled = controls.canMoveUp,
+            leadingIcon = { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.today_move_down)) },
+            onClick = {
+                onExpandedChange(false)
+                controls.onMoveDown()
+            },
+            enabled = controls.canMoveDown,
+            leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text("转为待办") },
+            onClick = {
+                onExpandedChange(false)
+                controls.onConvertToTodo?.invoke()
+            },
+            enabled = controls.onConvertToTodo != null && canConvertToTodo,
+            leadingIcon = {
+                Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, contentDescription = null)
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.today_delete)) },
+            onClick = {
+                onExpandedChange(false)
+                controls.onDelete()
+            },
+            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+        )
     }
 }
 

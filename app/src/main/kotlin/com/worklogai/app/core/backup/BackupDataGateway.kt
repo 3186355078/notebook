@@ -5,6 +5,7 @@ import com.worklogai.app.core.common.di.IoDispatcher
 import com.worklogai.app.core.database.WorkLogDatabase
 import com.worklogai.app.core.database.dao.AttachmentDao
 import com.worklogai.app.core.database.dao.ContentBlockDao
+import com.worklogai.app.core.database.dao.TodoDao
 import com.worklogai.app.core.database.dao.WorkEntryDao
 import com.worklogai.app.core.database.dao.WorkSummaryBackupDao
 import kotlinx.coroutines.CancellationException
@@ -24,6 +25,7 @@ internal enum class RestoreDatabaseCheckpoint {
     AFTER_INSERT_CONTENT_BLOCKS,
     AFTER_INSERT_ATTACHMENTS,
     AFTER_INSERT_WORK_SUMMARIES,
+    AFTER_INSERT_TODOS,
     BEFORE_TRANSACTION_COMPLETE,
 }
 
@@ -44,6 +46,7 @@ internal class BackupDatabaseDaos
         val contentBlocks: ContentBlockDao,
         val attachments: AttachmentDao,
         val summaries: WorkSummaryBackupDao,
+        val todos: TodoDao,
     )
 
 internal class RoomBackupDataGateway
@@ -62,6 +65,7 @@ internal class RoomBackupDataGateway
                         blocks = daos.contentBlocks.getAll(),
                         attachments = daos.attachments.getAll(),
                         summaries = daos.summaries.getAll(),
+                        todos = daos.todos.getAll(),
                     )
                 }
             }
@@ -69,6 +73,7 @@ internal class RoomBackupDataGateway
         override suspend fun replace(snapshot: BackupDatabaseSnapshot): Result<Unit> =
             guarded {
                 database.withTransaction {
+                    daos.todos.deleteAll()
                     daos.attachments.deleteAll()
                     daos.contentBlocks.deleteAll()
                     daos.workEntries.deleteAll()
@@ -82,6 +87,8 @@ internal class RoomBackupDataGateway
                     failureInjector.onCheckpoint(RestoreDatabaseCheckpoint.AFTER_INSERT_ATTACHMENTS)
                     daos.summaries.insertAll(snapshot.summaries)
                     failureInjector.onCheckpoint(RestoreDatabaseCheckpoint.AFTER_INSERT_WORK_SUMMARIES)
+                    daos.todos.insertAll(snapshot.todos)
+                    failureInjector.onCheckpoint(RestoreDatabaseCheckpoint.AFTER_INSERT_TODOS)
                     failureInjector.onCheckpoint(RestoreDatabaseCheckpoint.BEFORE_TRANSACTION_COMPLETE)
                 }
             }

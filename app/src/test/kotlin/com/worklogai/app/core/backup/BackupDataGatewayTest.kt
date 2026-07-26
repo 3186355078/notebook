@@ -40,6 +40,7 @@ class BackupDataGatewayTest {
                     database.contentBlockDao(),
                     database.attachmentDao(),
                     database.workSummaryBackupDao(),
+                    database.todoDao(),
                 )
             original = snapshot("old", LocalDate.of(2026, 7, 1))
             assertTrue(gateway().replace(original).isSuccess)

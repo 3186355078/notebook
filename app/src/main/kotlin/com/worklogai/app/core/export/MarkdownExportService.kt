@@ -5,10 +5,12 @@ import com.worklogai.app.ai.skill.worksummary.WorkSummarySkillRequest
 import com.worklogai.app.core.common.di.IoDispatcher
 import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.model.ContentBlock
+import com.worklogai.app.core.model.DailyTodo
 import com.worklogai.app.core.model.SummaryType
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.WorkEntry
 import com.worklogai.app.core.model.WorkSummary
+import com.worklogai.app.core.repository.TodoRepository
 import com.worklogai.app.core.repository.WorkEntryRepository
 import com.worklogai.app.core.repository.WorkSummaryRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -36,7 +38,10 @@ sealed interface MarkdownExportResult {
 }
 
 interface MarkdownExportService {
-    suspend fun createEntryDocument(date: LocalDate): MarkdownExportResult
+    suspend fun createEntryDocument(
+        date: LocalDate,
+        includeTodos: Boolean = true,
+    ): MarkdownExportResult
 
     suspend fun createSummaryDocument(
         type: SummaryType,
@@ -50,14 +55,23 @@ class DefaultMarkdownExportService
     constructor(
         private val workEntryRepository: WorkEntryRepository,
         private val workSummaryRepository: WorkSummaryRepository,
+        private val todoRepository: TodoRepository,
         private val workSummarySkill: WorkSummarySkill,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MarkdownExportService {
-        override suspend fun createEntryDocument(date: LocalDate): MarkdownExportResult =
+        override suspend fun createEntryDocument(
+            date: LocalDate,
+            includeTodos: Boolean,
+        ): MarkdownExportResult =
             withContext(ioDispatcher) {
-                when (val result = workEntryRepository.getEntry(date)) {
-                    is DataResult.Failure -> MarkdownExportResult.Failed
-                    is DataResult.Success -> result.value?.toEntryDocument() ?: MarkdownExportResult.NotFound
+                val entryResult = workEntryRepository.getEntry(date)
+                val todoResult = if (includeTodos) todoRepository.getByDate(date) else DataResult.Success(emptyList())
+                when {
+                    entryResult is DataResult.Failure || todoResult is DataResult.Failure -> MarkdownExportResult.Failed
+                    entryResult is DataResult.Success && todoResult is DataResult.Success ->
+                        createEntryDocument(date, entryResult.value, todoResult.value)
+
+                    else -> MarkdownExportResult.Failed
                 }
             }
 
@@ -76,15 +90,24 @@ class DefaultMarkdownExportService
             }
     }
 
-private fun WorkEntry.toEntryDocument(): MarkdownExportResult {
-    if (title.isNullOrBlank() && blocks.none(::hasExportableContent)) return MarkdownExportResult.Empty
-    return MarkdownExportResult.Success(
-        MarkdownDocument(
-            suggestedFileName = "工作记录_$entryDate.md",
-            content = buildEntryMarkdown(this),
-        ),
-    )
-}
+private fun createEntryDocument(
+    date: LocalDate,
+    entry: WorkEntry?,
+    todos: List<DailyTodo>,
+): MarkdownExportResult =
+    when {
+        entry == null && todos.isEmpty() -> MarkdownExportResult.NotFound
+        entry?.title.isNullOrBlank() &&
+            entry?.blocks.orEmpty().none(::hasExportableContent) &&
+            todos.isEmpty() -> MarkdownExportResult.Empty
+        else ->
+            MarkdownExportResult.Success(
+                MarkdownDocument(
+                    suggestedFileName = "工作记录_$date.md",
+                    content = buildEntryMarkdown(date, entry, todos),
+                ),
+            )
+    }
 
 private fun WorkSummary.toSummaryDocument(skill: WorkSummarySkill): MarkdownExportResult {
     val content =
@@ -116,19 +139,31 @@ private fun hasExportableContent(block: ContentBlock): Boolean =
         -> true
     }
 
-private fun buildEntryMarkdown(entry: WorkEntry): String =
+private fun buildEntryMarkdown(
+    date: LocalDate,
+    entry: WorkEntry?,
+    todos: List<DailyTodo>,
+): String =
     buildString {
-        appendLine("# ${entry.entryDate.format(ENTRY_TITLE_FORMATTER)}工作记录")
-        entry.title?.takeIf(String::isNotBlank)?.let { title ->
+        appendLine("# ${date.format(ENTRY_TITLE_FORMATTER)}工作记录")
+        entry?.title?.takeIf(String::isNotBlank)?.let { title ->
             appendLine()
             appendLine("## 标题")
             appendLine()
             appendLine(title.trim())
         }
-        appendLine()
-        appendLine("## 工作内容")
-        entry.blocks.sortedBy(ContentBlock::order).forEachIndexed { index, block ->
-            appendBlock(block, index + 1)
+        if (todos.isNotEmpty()) {
+            appendLine()
+            appendLine("## 今日待办")
+            appendLine()
+            todos.forEach { todo -> appendTodo(todo) }
+        }
+        if (entry != null) {
+            appendLine()
+            appendLine("## 工作内容")
+            entry.blocks.sortedBy(ContentBlock::order).forEachIndexed { index, block ->
+                appendBlock(block, index + 1)
+            }
         }
     }.trimEnd() + "\n"
 

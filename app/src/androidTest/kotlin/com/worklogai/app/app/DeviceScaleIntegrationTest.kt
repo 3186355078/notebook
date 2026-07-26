@@ -12,6 +12,7 @@ import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.database.codec.KotlinxTableContentCodec
 import com.worklogai.app.core.database.entity.AttachmentEntity
 import com.worklogai.app.core.database.entity.ContentBlockEntity
+import com.worklogai.app.core.database.entity.TodoEntity
 import com.worklogai.app.core.database.entity.WorkEntryEntity
 import com.worklogai.app.core.database.entity.WorkSummaryEntity
 import com.worklogai.app.core.model.ContentBlockType
@@ -20,6 +21,8 @@ import com.worklogai.app.core.model.SummaryType
 import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.TableRow
+import com.worklogai.app.core.model.TodoPriority
+import com.worklogai.app.core.model.TodoStatus
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -100,6 +103,7 @@ class DeviceScaleIntegrationTest {
                 assertEquals(BLOCK_COUNT, previewValue.blockCount)
                 assertEquals(IMAGE_COUNT, previewValue.attachmentCount)
                 assertEquals(SUMMARY_COUNT, previewValue.summaryCount)
+                assertEquals(TODO_COUNT, previewValue.todoCount)
 
                 dependencies.database().clearAllTables()
                 val restoreStarted = SystemClock.elapsedRealtime()
@@ -112,6 +116,9 @@ class DeviceScaleIntegrationTest {
                 val afterRestore = dependencies.historyRepository().getRecentEntries(PAGE_SIZE, 0) as DataResult.Success
                 assertEquals(PAGE_SIZE, afterRestore.value.entries.size)
                 assertNotNull(dependencies.database().attachmentDao().getById("stage9-scale-attachment-995"))
+                val restoredTodos = dependencies.database().todoDao().getAll()
+                assertEquals(TODO_COUNT, restoredTodos.size)
+                assertEquals("stage9-scale-block-0-0", restoredTodos.first().linkedContentBlockId)
 
                 Log.i(
                     METRICS_TAG,
@@ -230,12 +237,31 @@ class DeviceScaleIntegrationTest {
                     generatedAt = now,
                 )
             }
+        val todos =
+            (0 until TODO_COUNT).map { index ->
+                val status = TodoStatus.entries[index % TodoStatus.entries.size]
+                TodoEntity(
+                    id = "stage10-scale-todo-$index",
+                    scheduledDate = SCALE_START.plusDays(index.toLong()),
+                    title = "Stage 10 scale todo $index",
+                    note = "Synthetic local-only todo",
+                    priority = TodoPriority.entries[index % TodoPriority.entries.size],
+                    status = status,
+                    sortOrder = index,
+                    completionNote = if (status == TodoStatus.DONE) "Completed in fixture" else null,
+                    linkedContentBlockId = if (index == 0) "stage9-scale-block-0-0" else null,
+                    createdAt = now,
+                    updatedAt = now,
+                    completedAt = if (status == TodoStatus.DONE) now else null,
+                )
+            }
 
         database.withTransaction {
             database.workEntryDao().insertAll(entries)
             database.contentBlockDao().insertAll(blocks)
             database.attachmentDao().insertAll(attachments)
             database.workSummaryBackupDao().insertAll(summaries)
+            database.todoDao().insertAll(todos)
         }
     }
 
@@ -264,6 +290,7 @@ class DeviceScaleIntegrationTest {
         const val IMAGE_INTERVAL = 5
         const val IMAGE_COUNT = ENTRY_COUNT / IMAGE_INTERVAL
         const val SUMMARY_COUNT = 500
+        const val TODO_COUNT = 50
         const val PAGE_SIZE = 30
         const val TABLE_TOKEN = "stage9-table-token"
         const val CAPTION_TOKEN = "stage9-caption-token"

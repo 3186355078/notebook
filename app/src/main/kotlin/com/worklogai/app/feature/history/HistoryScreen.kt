@@ -34,6 +34,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.EmptyState
+import com.worklogai.app.core.repository.TodoDateStats
 import kotlinx.coroutines.flow.collectLatest
 import java.time.LocalDate
 
@@ -42,8 +43,10 @@ fun HistoryScreen(
     onOpenEntry: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HistoryViewModel = hiltViewModel(),
+    todoStatsViewModel: HistoryTodoStatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val todoStats by todoStatsViewModel.stats.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -57,11 +60,15 @@ fun HistoryScreen(
             }
         }
     }
+    LaunchedEffect(state.items.map(HistoryItemUiModel::date)) {
+        todoStatsViewModel.load(state.items.map(HistoryItemUiModel::date).toSet())
+    }
 
     HistoryScreenContent(
         state = state,
         snackbarHostState = snackbarHostState,
         onAction = viewModel::onAction,
+        todoStats = todoStats,
         modifier = modifier,
     )
 }
@@ -71,6 +78,7 @@ internal fun HistoryScreenContent(
     state: HistoryUiState,
     snackbarHostState: SnackbarHostState,
     onAction: (HistoryAction) -> Unit,
+    todoStats: Map<LocalDate, TodoDateStats> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -103,6 +111,7 @@ internal fun HistoryScreenContent(
                 state = state,
                 listState = listState,
                 onAction = onAction,
+                todoStats = todoStats,
             )
         }
     }
@@ -113,6 +122,7 @@ private fun HistoryList(
     state: HistoryUiState,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onAction: (HistoryAction) -> Unit,
+    todoStats: Map<LocalDate, TodoDateStats>,
 ) {
     when {
         state.isLoading && state.items.isEmpty() -> HistoryLoadingContent()
@@ -134,7 +144,11 @@ private fun HistoryList(
                     }
                 } else {
                     items(state.items, key = HistoryItemUiModel::entryId) { item ->
-                        HistoryItemCard(item = item, onOpen = { onAction(HistoryAction.OpenEntry(item.date)) })
+                        HistoryItemCard(
+                            item = item,
+                            todoStats = todoStats[item.date],
+                            onOpen = { onAction(HistoryAction.OpenEntry(item.date)) },
+                        )
                     }
                 }
                 state.errorMessage?.takeIf { state.items.isNotEmpty() }?.let { message ->
@@ -164,6 +178,7 @@ private fun HistoryList(
 @Composable
 private fun HistoryItemCard(
     item: HistoryItemUiModel,
+    todoStats: TodoDateStats?,
     onOpen: () -> Unit,
 ) {
     Card(
@@ -188,6 +203,13 @@ private fun HistoryItemCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
+            todoStats?.takeIf { it.total > 0 }?.let {
+                Text(
+                    "${it.done}/${it.total} 项待办已完成",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
         }
     }
 }

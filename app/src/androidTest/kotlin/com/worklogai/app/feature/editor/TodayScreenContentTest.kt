@@ -7,8 +7,10 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.worklogai.app.core.designsystem.theme.WorkLogTheme
 import com.worklogai.app.core.model.TableColumn
@@ -61,9 +63,9 @@ class TodayScreenContentTest {
 
         composeRule.onNodeWithText("表格标题（可选）").assertIsDisplayed()
         composeRule.onNodeWithText("列名").assertIsDisplayed()
-        composeRule.onNodeWithText("添加一行").performClick()
-        composeRule.onNodeWithText("添加一列").performClick()
-        composeRule.onAllNodes(hasSetTextAction())[0].performTextInput("标题")
+        composeRule.onNodeWithTag("table_add_row_table").performScrollTo().performClick()
+        composeRule.onNodeWithTag("table_add_column_table").performScrollTo().performClick()
+        composeRule.onNodeWithTag("table_title_table").performTextInput("标题")
         composeRule.runOnIdle {
             assertEquals(TodayAction.AddTableRow("table"), actions[0])
             assertEquals(TodayAction.AddTableColumn("table"), actions[1])
@@ -144,12 +146,13 @@ class TodayScreenContentTest {
             "table_50x8_render_ms=${android.os.SystemClock.elapsedRealtime() - startedAt}",
         )
 
-        composeRule.onNodeWithText("添加一行").assertIsNotEnabled()
-        composeRule.onNodeWithText("添加一列").assertIsNotEnabled()
+        composeRule.onNodeWithTag("table_add_row_large-table").assertIsNotEnabled()
+        composeRule.onNodeWithTag("table_add_column_large-table").assertIsNotEnabled()
         val fields = composeRule.onAllNodes(hasSetTextAction())
         val fieldCount = fields.fetchSemanticsNodes().size
         assertTrue(fieldCount >= EXPECTED_TABLE_FIELDS)
-        fields[fieldCount - 1].performTextInput("末格验证")
+        composeRule.onNodeWithTag("table_cell_row-50_column-8").performScrollTo()
+        composeRule.onNodeWithTag("table_cell_row-50_column-8").performTextInput("末格验证")
         composeRule.runOnIdle {
             assertTrue(actions.last() is TodayAction.TableCellChanged)
         }

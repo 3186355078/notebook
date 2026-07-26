@@ -279,7 +279,7 @@ class TodayViewModelTest {
     }
 
     @Test
-    fun `date change flushes prior draft and loads a separate entry`() {
+    fun `date change flushes prior draft and enters future planning without creating work entry`() {
         val block = repository.addText(date, "")
         val nextDate = date.plusDays(1)
         repository.emit(date)
@@ -295,7 +295,8 @@ class TodayViewModelTest {
             viewModel.uiState.value.blocks
                 .isEmpty(),
         )
-        assertEquals(listOf(date, nextDate), repository.getOrCreateDates)
+        assertTrue(viewModel.uiState.value.isFuturePlanning)
+        assertEquals(listOf(date), repository.getOrCreateDates)
     }
 
     @Test

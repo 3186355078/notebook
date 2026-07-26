@@ -4,13 +4,17 @@ import com.worklogai.app.ai.skill.worksummary.WorkSummarySkill
 import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.model.Attachment
 import com.worklogai.app.core.model.ContentBlock
+import com.worklogai.app.core.model.DailyTodo
 import com.worklogai.app.core.model.SummaryStatus
 import com.worklogai.app.core.model.SummaryType
 import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.TableRow
+import com.worklogai.app.core.model.TodoPriority
+import com.worklogai.app.core.model.TodoStatus
 import com.worklogai.app.core.model.WorkEntry
 import com.worklogai.app.core.model.WorkSummary
+import com.worklogai.app.core.repository.TodoRepository
 import com.worklogai.app.core.repository.WorkEntryRepository
 import com.worklogai.app.core.repository.WorkSummaryRepository
 import io.mockk.coEvery
@@ -27,14 +31,23 @@ import java.time.LocalDate
 class MarkdownExportServiceTest {
     private val entries = mockk<WorkEntryRepository>()
     private val summaries = mockk<WorkSummaryRepository>()
+    private val todos = mockk<TodoRepository>()
     private val skill = mockk<WorkSummarySkill>()
-    private val service = DefaultMarkdownExportService(entries, summaries, skill, Dispatchers.Unconfined)
+    private val service =
+        DefaultMarkdownExportService(
+            entries,
+            summaries,
+            todos,
+            skill,
+            Dispatchers.Unconfined,
+        )
 
     @Test
     fun `entry markdown preserves block order and keeps attachment paths private`() {
         runBlocking {
             val date = LocalDate.of(2026, 7, 14)
             coEvery { entries.getEntry(date) } returns DataResult.Success(entry(date))
+            coEvery { todos.getByDate(date) } returns DataResult.Success(emptyList())
 
             val result = service.createEntryDocument(date) as MarkdownExportResult.Success
 
@@ -54,6 +67,7 @@ class MarkdownExportServiceTest {
             val date = LocalDate.of(2026, 7, 14)
             coEvery { entries.getEntry(date) } returns
                 DataResult.Success(entry(date, blocks = emptyList(), title = null))
+            coEvery { todos.getByDate(date) } returns DataResult.Success(emptyList())
 
             assertEquals(MarkdownExportResult.Empty, service.createEntryDocument(date))
         }
@@ -63,8 +77,50 @@ class MarkdownExportServiceTest {
     fun `missing entry is reported without creating a document`() {
         runBlocking {
             coEvery { entries.getEntry(any()) } returns DataResult.Success(null)
+            coEvery { todos.getByDate(any()) } returns DataResult.Success(emptyList())
 
             assertEquals(MarkdownExportResult.NotFound, service.createEntryDocument(LocalDate.of(2026, 7, 14)))
+        }
+    }
+
+    @Test
+    fun `entry markdown optionally exports todos without internal identifiers`() {
+        runBlocking {
+            val date = LocalDate.of(2026, 7, 14)
+            coEvery { entries.getEntry(date) } returns DataResult.Success(null)
+            coEvery { todos.getByDate(date) } returns
+                DataResult.Success(
+                    listOf(
+                        todo(
+                            id = "private-todo-id",
+                            title = "完成 [联调]*",
+                            priority = TodoPriority.URGENT,
+                            status = TodoStatus.DONE,
+                            completionNote = "已验证 | 中文 😀",
+                        ),
+                        todo(
+                            id = "cancelled",
+                            title = "取消事项",
+                            priority = TodoPriority.LOW,
+                            status = TodoStatus.CANCELED,
+                        ),
+                    ),
+                )
+
+            val document = service.createEntryDocument(date) as MarkdownExportResult.Success
+
+            assertTrue(document.document.content.contains("## 今日待办"))
+            assertTrue(document.document.content.contains("- [x] [紧急]"))
+            assertTrue(document.document.content.contains("- [-] [低]"))
+            assertTrue(document.document.content.contains("完成 \\[联调\\]\\*"))
+            assertTrue(document.document.content.contains("已验证 \\| 中文 😀"))
+            assertFalse(document.document.content.contains("private-todo-id"))
+            assertFalse(document.document.content.contains("private-block-id"))
+            assertFalse(document.document.content.contains("sortOrder"))
+
+            coEvery { entries.getEntry(date) } returns DataResult.Success(entry(date))
+            val withoutTodos = service.createEntryDocument(date, includeTodos = false) as MarkdownExportResult.Success
+            assertFalse(withoutTodos.document.content.contains("今日待办"))
         }
     }
 
@@ -155,6 +211,27 @@ class MarkdownExportServiceTest {
         NOW,
         NOW,
         NOW,
+    )
+
+    private fun todo(
+        id: String,
+        title: String,
+        priority: TodoPriority,
+        status: TodoStatus,
+        completionNote: String? = null,
+    ) = DailyTodo(
+        id = id,
+        scheduledDate = LocalDate.of(2026, 7, 14),
+        title = title,
+        note = null,
+        priority = priority,
+        status = status,
+        sortOrder = 0,
+        completionNote = completionNote,
+        linkedContentBlockId = if (id == "private-todo-id") "private-block-id" else null,
+        createdAt = NOW,
+        updatedAt = NOW,
+        completedAt = if (status == TodoStatus.DONE) NOW else null,
     )
 
     private companion object {

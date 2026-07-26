@@ -288,6 +288,7 @@ private object BackupArchivePayloadMapper {
             payload.blocks.map(BackupContentBlock::toEntity),
             payload.attachments.map(BackupAttachment::toEntity),
             payload.summaries.map(BackupWorkSummary::toEntity),
+            payload.todos.map(BackupTodoItem::toEntity),
         )
 }
 

@@ -3,25 +3,28 @@ package com.worklogai.app.feature.editor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -34,8 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.disabled
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -52,6 +53,11 @@ import com.worklogai.app.feature.editor.component.TableBlockEditor
 import com.worklogai.app.feature.editor.component.TextBlockCallbacks
 import com.worklogai.app.feature.editor.component.TextBlockEditor
 import com.worklogai.app.feature.editor.component.UnsupportedBlockCard
+import com.worklogai.app.feature.todo.TodayTodoAction
+import com.worklogai.app.feature.todo.TodayTodoSection
+import com.worklogai.app.feature.todo.TodayTodoUiEvent
+import com.worklogai.app.feature.todo.TodayTodoUiState
+import com.worklogai.app.feature.todo.TodayTodoViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import java.time.Duration
@@ -65,10 +71,13 @@ private const val MIN_DATE_REFRESH_DELAY_MS = 1_000L
 @Composable
 fun TodayScreen(
     followCurrentDate: Boolean = true,
+    onOpenEntry: (LocalDate) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
+    todoViewModel: TodayTodoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val todoState by todoViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val imagePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -76,7 +85,11 @@ fun TodayScreen(
         }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        if (followCurrentDate) viewModel.onAction(TodayAction.DateChanged(LocalDate.now()))
+        if (followCurrentDate) {
+            val date = LocalDate.now()
+            viewModel.onAction(TodayAction.DateChanged(date))
+            todoViewModel.onAction(TodayTodoAction.DateChanged(date))
+        }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         viewModel.onAction(TodayAction.FlushPendingEdits)
@@ -91,6 +104,14 @@ fun TodayScreen(
             }
         }
     }
+    LaunchedEffect(todoViewModel) {
+        todoViewModel.events.collectLatest { event ->
+            when (event) {
+                is TodayTodoUiEvent.OpenWorkEntry -> onOpenEntry(event.date)
+                is TodayTodoUiEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
+            }
+        }
+    }
     LaunchedEffect(followCurrentDate) {
         while (followCurrentDate) {
             val now = ZonedDateTime.now()
@@ -101,24 +122,31 @@ fun TodayScreen(
                     .toMillis()
                     .coerceAtLeast(MIN_DATE_REFRESH_DELAY_MS)
             delay(delayMillis)
-            viewModel.onAction(TodayAction.DateChanged(LocalDate.now()))
+            val date = LocalDate.now()
+            viewModel.onAction(TodayAction.DateChanged(date))
+            todoViewModel.onAction(TodayTodoAction.DateChanged(date))
         }
     }
 
     TodayScreenContent(
         state = state,
+        todoState = todoState,
         snackbarHostState = snackbarHostState,
         onAction = viewModel::onAction,
+        onTodoAction = todoViewModel::onAction,
         onPickImage = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
         modifier = modifier,
     )
 }
 
 @Composable
+@Suppress("LongParameterList")
 internal fun TodayScreenContent(
     state: TodayUiState,
+    todoState: TodayTodoUiState = TodayTodoUiState(date = state.date, isLoading = false),
     snackbarHostState: SnackbarHostState,
     onAction: (TodayAction) -> Unit,
+    onTodoAction: (TodayTodoAction) -> Unit = {},
     onPickImage: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -130,45 +158,12 @@ internal fun TodayScreenContent(
     val focusedIndex = state.blocks.indexOfFirst { it.id == state.focusedBlockId }
 
     LaunchedEffect(state.focusedBlockId, focusedIndex) {
-        if (focusedIndex >= 0) listState.animateScrollToItem(focusedIndex + 1)
+        if (focusedIndex >= 0) listState.animateScrollToItem(focusedIndex + 2)
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            if (state.canEdit && state.blocks.isNotEmpty()) {
-                Row {
-                    ExtendedFloatingActionButton(onClick = {
-                        onAction(TodayAction.AddTextBlock)
-                    }, icon = {
-                        androidx.compose.material3.Icon(
-                            Icons.Outlined.Add,
-                            contentDescription = "添加文字",
-                        )
-                    }, text = { Text("文字") })
-                    ExtendedFloatingActionButton(
-                        onClick = {
-                            if (!state.isImageImporting) onPickImage()
-                        },
-                        icon = {
-                            androidx.compose.material3.Icon(Icons.Outlined.Image, contentDescription = "添加图片")
-                        },
-                        text = { Text(if (state.isImageImporting) "导入中" else "图片") },
-                        modifier =
-                            Modifier.padding(start = 8.dp).semantics {
-                                if (state.isImageImporting) disabled()
-                            },
-                        expanded = false,
-                    )
-                    ExtendedFloatingActionButton(onClick = {
-                        onAction(TodayAction.AddTableBlock)
-                    }, icon = {
-                        androidx.compose.material3.Icon(Icons.Outlined.TableChart, contentDescription = "添加表格")
-                    }, text = { Text("表格") }, modifier = Modifier.padding(start = 8.dp), expanded = false)
-                }
-            }
-        },
     ) { paddingValues ->
         TodayScreenBody(
             state = state,
@@ -176,6 +171,9 @@ internal fun TodayScreenContent(
             dateFormatter = dateFormatter,
             paddingValues = paddingValues,
             onAction = onAction,
+            todoState = todoState,
+            onTodoAction = onTodoAction,
+            onPickImage = onPickImage,
         )
     }
 
@@ -188,15 +186,27 @@ internal fun TodayScreenContent(
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun TodayScreenBody(
     state: TodayUiState,
     listState: androidx.compose.foundation.lazy.LazyListState,
     dateFormatter: DateTimeFormatter,
     paddingValues: PaddingValues,
     onAction: (TodayAction) -> Unit,
+    todoState: TodayTodoUiState,
+    onTodoAction: (TodayTodoAction) -> Unit,
+    onPickImage: () -> Unit,
 ) {
     when {
         state.isLoading -> LoadingContent(modifier = Modifier.padding(paddingValues))
+        state.isFuturePlanning ->
+            FuturePlanningContent(
+                state = state,
+                todoState = todoState,
+                dateFormatter = dateFormatter,
+                paddingValues = paddingValues,
+                onTodoAction = onTodoAction,
+            )
         state.entryId == null ->
             LoadErrorContent(
                 state = state,
@@ -210,17 +220,59 @@ private fun TodayScreenBody(
                 dateFormatter = dateFormatter,
                 paddingValues = paddingValues,
                 onAction = onAction,
+                todoState = todoState,
+                onTodoAction = onTodoAction,
+                onPickImage = onPickImage,
             )
     }
 }
 
 @Composable
+private fun FuturePlanningContent(
+    state: TodayUiState,
+    todoState: TodayTodoUiState,
+    dateFormatter: DateTimeFormatter,
+    paddingValues: PaddingValues,
+    onTodoAction: (TodayTodoAction) -> Unit,
+) {
+    LazyColumn(
+        contentPadding =
+            PaddingValues(
+                start = 20.dp,
+                top = 16.dp,
+                end = 20.dp,
+                bottom = 24.dp + paddingValues.calculateBottomPadding(),
+            ),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        item(key = "future_header") {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(state.date.format(dateFormatter), style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "未来日期仅用于规划待办，不能提前创建工作记录。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        item(key = "future_todos") {
+            TodayTodoSection(todoState, onTodoAction)
+        }
+    }
+}
+
+@Composable
+@Suppress("LongParameterList")
 private fun TodayEntryList(
     state: TodayUiState,
     listState: androidx.compose.foundation.lazy.LazyListState,
     dateFormatter: DateTimeFormatter,
     paddingValues: PaddingValues,
     onAction: (TodayAction) -> Unit,
+    todoState: TodayTodoUiState,
+    onTodoAction: (TodayTodoAction) -> Unit,
+    onPickImage: () -> Unit,
 ) {
     LazyColumn(
         state = listState,
@@ -229,7 +281,7 @@ private fun TodayEntryList(
                 start = 20.dp,
                 top = 16.dp,
                 end = 20.dp,
-                bottom = 96.dp + paddingValues.calculateBottomPadding(),
+                bottom = 24.dp + paddingValues.calculateBottomPadding(),
             ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
@@ -238,15 +290,27 @@ private fun TodayEntryList(
             TodayHeader(
                 title =
                     if (state.followsCurrentDate) {
-                        stringResource(
-                            R.string.nav_today,
-                        )
+                        null
                     } else {
                         state.date.format(dateFormatter)
                     },
                 dateText = state.date.format(dateFormatter),
                 saveState = state.saveState,
                 onRetrySave = { onAction(TodayAction.RetryFailedSaves) },
+            )
+        }
+        item(key = "today_todos") {
+            TodayTodoSection(
+                state = todoState,
+                onAction = onTodoAction,
+            )
+        }
+        item(key = "quick_record_toolbar") {
+            QuickRecordToolbar(
+                isImageImporting = state.isImageImporting,
+                onAddText = { onAction(TodayAction.AddTextBlock) },
+                onAddImage = onPickImage,
+                onAddTable = { onAction(TodayAction.AddTableBlock) },
             )
         }
         if (state.blocks.isEmpty()) {
@@ -276,7 +340,39 @@ private fun TodayEntryList(
                             requestsFocus = block.id == state.focusedBlockId,
                         ),
                     onAction = onAction,
+                    onConvertTextBlock = { blockId ->
+                        onTodoAction(TodayTodoAction.RequestTextConversion(blockId))
+                    },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickRecordToolbar(
+    isImageImporting: Boolean,
+    onAddText: () -> Unit,
+    onAddImage: () -> Unit,
+    onAddTable: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("快速记录", style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(onClick = onAddText) {
+                androidx.compose.material3.Icon(Icons.Outlined.Add, contentDescription = "添加文字")
+                Text("文字", modifier = Modifier.padding(start = 6.dp))
+            }
+            OutlinedButton(onClick = onAddImage, enabled = !isImageImporting) {
+                androidx.compose.material3.Icon(Icons.Outlined.Image, contentDescription = "添加图片")
+                Text(if (isImageImporting) "导入中" else "图片", modifier = Modifier.padding(start = 6.dp))
+            }
+            OutlinedButton(onClick = onAddTable) {
+                androidx.compose.material3.Icon(Icons.Outlined.TableChart, contentDescription = "添加表格")
+                Text("表格", modifier = Modifier.padding(start = 6.dp))
             }
         }
     }
@@ -286,6 +382,7 @@ private fun TodayEntryList(
 private fun EditorBlockItem(
     presentation: EditorBlockPresentation,
     onAction: (TodayAction) -> Unit,
+    onConvertTextBlock: (String) -> Unit,
 ) {
     val block = presentation.block
     val controls =
@@ -295,6 +392,12 @@ private fun EditorBlockItem(
             onMoveUp = { onAction(TodayAction.MoveBlockUp(block.id)) },
             onMoveDown = { onAction(TodayAction.MoveBlockDown(block.id)) },
             onDelete = { onAction(TodayAction.RequestDeleteBlock(block.id)) },
+            onConvertToTodo =
+                if (block is TextBlockUiModel) {
+                    { onConvertTextBlock(block.id) }
+                } else {
+                    null
+                },
         )
     when (block) {
         is TextBlockUiModel ->
@@ -353,13 +456,13 @@ private data class EditorBlockPresentation(
 
 @Composable
 private fun TodayHeader(
-    title: String,
+    title: String?,
     dateText: String,
     saveState: SaveState,
     onRetrySave: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(text = title, style = MaterialTheme.typography.headlineSmall)
+        title?.let { Text(text = it, style = MaterialTheme.typography.headlineSmall) }
         Text(
             text = dateText,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
