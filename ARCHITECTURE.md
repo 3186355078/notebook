@@ -4,7 +4,7 @@
 
 WorkLog AI 的主链路是“按日记录 → 本地持久化 → 历史检索 → 可选生成周/月总结”。架构优先级依次是：数据不丢失、离线可用、隐私边界清晰、代码易于验证，最后才是功能扩展速度。
 
-当前已实现至阶段 8，并已完成 JVM/Robolectric 与强制无缓存工程回归。本文描述工程、数据、编辑、历史、私有附件、表格、AI 总结、自动后台总结、Markdown 导出和完整备份恢复边界。
+当前 0.1.0 内部试用版已完成阶段 1～9，0.2.0-dev 正在实施阶段 10。本文同时描述新增每日待办、Room 1→2 Migration、备份格式 v2 和设计系统边界。
 
 明确不属于 MVP 的能力包括账号、团队协作、聊天、考勤、审批、复杂项目管理、云同步、OCR、图片识别、语音转文字、会员和广告。
 
@@ -136,7 +136,15 @@ TEXT 的项目符号与待办项保持轻量文本语义，不在 MVP 引入复�
 
 ### 数据库版本与 Schema
 
-`WorkLogDatabase` 当前为版本 `1`，名称为 `worklog_ai.db`。KSP 在 `app/schemas/` 导出 schema，当前文件为 `app/schemas/com.worklogai.app.core.database.WorkLogDatabase/1.json` 并应纳入版本控制。后续更改 Entity 时必须新增显式 Migration 与对应 schema，不使用 `fallbackToDestructiveMigration()`。
+`WorkLogDatabase` 当前为版本 `2`，名称为 `worklog_ai.db`。Schema 1 与 Schema 2 同时纳入版本控制；`Migration(1, 2)` 只创建 `todo_items`、四个索引和指向 `content_blocks` 的 `ON DELETE SET NULL` 外键。Migration 不重建既有表，不使用 `fallbackToDestructiveMigration()`。
+
+### DailyTodo
+
+`todo_items` 以 `scheduledDate` 归属自然日，优先级为 `URGENT/HIGH/MEDIUM/LOW`，状态为 `NOT_STARTED/IN_PROGRESS/DONE/CANCELED`。状态不是布尔值；`sortOrder` 只表达同日同优先级的手动顺序，每次持久化重排都归一化为从 0 开始的连续整数。默认查询显式采用“未完成在前、优先级、sortOrder、createdAt、id”的稳定顺序。
+
+`linkedContentBlockId` 可空并引用 TEXT 内容块。删除工作记录块时数据库将链接置空而不删除待办；删除待办也不删除已经形成的历史工作记录。`CompleteTodoAndRecordUseCase` 在单个 Room 事务中创建/恢复当天 WorkEntry、追加 TEXT 块并绑定待办，避免部分提交。重新同步会创建新块、更新链接但不静默改写旧事实。
+
+待办 Repository 与工作日志 Repository 分离；跨域联动只存在于 UseCase。Todo 内容不进入 WorkSummarySkill、Provider 连接测试、Worker Data、通知或生产日志。只有用户主动同步后形成的 ContentBlock 才按既有 AI 同意边界参与总结。
 
 ### AppSettings
 
@@ -210,7 +218,9 @@ Worker 通过应用级 `WorkLogWorkerFactory` 获取 Hilt 注入依赖；它不�
 
 ### ADR-010：恢复必须原子化
 
-备份协议固定为 `formatName = worklog-ai-backup`、`formatVersion = 1`，与 Room database version 独立。ZIP 只允许 Manifest、五个固定 data JSON 和 Manifest 声明的 `attachments/images/` 文件。Entry 名先按 `/` 规范化并拒绝绝对路径、盘符、反斜杠、控制字符、`..`、超长路径和白名单外路径；规范化后按大小写不敏感比较，任何重复 Entry 都拒绝。Manifest 中每个文件的实际流 size 与小写 SHA-256 都必须匹配，未声明或缺失的核心文件均拒绝。
+备份协议固定 `formatName = worklog-ai-backup`，当前 `formatVersion = 2`，与 Room database version 独立。v2 新增 `data/todo_items.json`、`todoCount` 与集中式 `maxTodos`；v1 仍可读取并规范化为 `todos = emptyList()`。ZIP 只允许 Manifest、协议声明的固定 data JSON 和 Manifest 声明的 `attachments/images/` 文件。Entry 名先按 `/` 规范化并拒绝绝对路径、盘符、反斜杠、控制字符、`..`、超长路径和白名单外路径；规范化后按大小写不敏感比较，任何重复 Entry 都拒绝。Manifest 中每个文件的实际流 size 与小写 SHA-256 都必须匹配，未声明或缺失的核心文件均拒绝。
+
+Todo DTO 预检校验唯一 ID、日期、长度、枚举、非负 sortOrder、DONE/completedAt 一致性以及可选内容块链接。未知链接在修改正式数据前拒绝；恢复插入顺序为 WorkEntry、ContentBlock、Attachment、WorkSummary、Todo，回滚快照也包含 Todo。
 
 `BackupSafetyLimits` 集中定义归档大小、Entry 数、单 Entry/总解压大小、压缩比、JSON/附件大小、路径长度和各 DTO 记录数。Reader 即使面对未知 Header size 也按实际读取字节计数，并在越界时立即停止；目录 Entry 计入总 Entry 数。完整 payload 在正式修改前校验日期与业务唯一键、块引用与顺序、TABLE 1×1～50×8、附件只关联 IMAGE、安全相对路径、图片头/MIME，以及自然周/自然月 Summary 周期。
 
@@ -229,6 +239,16 @@ restore journal 只记录随机 restoreId、阶段、内部 staging/old 目录�
 Release Keystore 位于仓库之外。Gradle 只从当前进程的 `WORKLOG_RELEASE_STORE_FILE`、`WORKLOG_RELEASE_STORE_PASSWORD`、`WORKLOG_RELEASE_KEY_ALIAS` 和 `WORKLOG_RELEASE_KEY_PASSWORD` 读取签名配置；缺失变量或无效文件会在 Release 打包前以不含口令/路径的受控错误停止，Debug 构建则完全不依赖这些变量。校验任务只把缺失变量名称和非敏感文件路径建模为任务输入，口令不进入任务输入或 Configuration Cache。签名值不写入 Gradle 文件、BuildConfig、资源、报告或 Git。`tools/release-build.ps1` 只在交互式终端把 SecureString 临时转换给子进程，并在 finally 中清除环境变量和 BSTR。
 
 APK 使用 v2/v3 签名，AAB 使用 JAR 签名。最终提交后必须重新 clean 构建、用官方 `apksigner`/`jarsigner` 验证，并通过 `tools/package-release.ps1` 把 APK、AAB、SHA256SUMS、发布报告和 R8 mapping 复制到 Git 忽略的 `release-artifacts/<version>/`。发布产物、mapping、Keystore 和密码永不进入版本控制；本地 Tag 不自动 push。
+
+### ADR-012：每日待办边界与工作记录联动
+
+Room v2 新增 `todo_items`，原有四张业务表不重建。Todo 使用独立领域模型、Repository 与 UseCase：四级优先级和四种状态均为枚举，`sortOrder` 只表达同日期未完成项的稳定手动顺序，批量重排与日期迁移在单事务中规范化为连续非负序号。`linkedContentBlockId` 是可空外键，删除内容块时使用 `SET NULL` 保留 Todo。
+
+“完成并记录”在一个 Room 事务内取得或创建对应日期 WorkEntry、追加 TEXT ContentBlock 并绑定 Todo；已绑定项拒绝重复同步。重新同步会明确创建新的工作记录，不静默改写旧事实。文字块转 Todo 保留原工作记录，未来 Todo 可以规划但不能提前写入未来日志。Todo 内容本身不进入 AI、WorkManager Data、通知、Provider 测试或生产日志；只有用户主动生成的工作记录块才沿用工作日志的 AI 授权边界。
+
+备份协议 v2 新增 `data/todo_items.json`、`todoCount` 与 `maxTodos`，恢复前校验 Todo ID、日期、长度、枚举、排序、完成时间和 TEXT 块链接。Reader 继续接受 v1 并规范化为空 Todo 列表。Room Migration 1→2 只创建 Todo 表、索引和外键，Schema 1 永久保留。
+
+界面使用统一的 Material 3 Design Token。Today 页按日期概览、紧凑待办、快速记录和工作内容组织；快速记录工具栏属于 LazyColumn 内容，不覆盖表格结构按钮。拖动只维护短期 UI 顺序，结束时一次性持久化；TalkBack 使用上移、下移和优先级调整动作代替手势。Dynamic Color 在 Android 12+ 可用，回退色、深色、1.5× 字体和横屏共享相同组件语义。
 
 ## 6. 错误模型
 
@@ -254,6 +274,7 @@ AI 原始返回可在 `WorkSummary` 中为用户本地排查保留，但不得�
 - Worker 测试：约束、重试、周期检查和重复执行。
 - 每个阶段至少运行构建、单元测试、相关仪器测试编译、Android Lint、Detekt 和 ktlint；无法运行设备测试时必须明确区分“已编译”和“已执行”。
 - 阶段 9 使用 Android 16 / API 36 的 HONOR 真机执行 41 个 Instrumentation 方法和人工 SAF、Keystore、通知、Worker、生命周期及性能矩阵。Android 10～13 第二设备/模拟器按用户明确要求未执行，作为内部试用风险记录，绝不写成通过。
+- 阶段 10 使用 `--rerun-tasks --no-build-cache` 执行 246 个 JVM/Robolectric 测试和 51 个 Android 16 真机 Instrumentation 方法；新增覆盖 Migration、Todo Repository/UseCase/ViewModel、Backup v1/v2、Markdown、50 条 Todo、无障碍排序及设备级 v2 恢复。最终 XML 的 failures/errors/skipped 均为 0。
 
 ## 阶段 5：历史日志架构
 

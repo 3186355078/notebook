@@ -14,6 +14,7 @@ import com.worklogai.app.core.database.codec.KotlinxTableContentCodec
 import com.worklogai.app.core.database.codec.TableContentCodec
 import com.worklogai.app.core.database.hash.Sha256SummarySourceHasher
 import com.worklogai.app.core.database.hash.SummarySourceHasher
+import com.worklogai.app.core.database.repository.OfflineTodoRepository
 import com.worklogai.app.core.database.repository.OfflineWorkEntryRepository
 import com.worklogai.app.core.database.repository.OfflineWorkHistoryRepository
 import com.worklogai.app.core.database.repository.OfflineWorkSummaryRepository
@@ -24,6 +25,7 @@ import com.worklogai.app.core.history.WorkEntrySummaryBuilder
 import com.worklogai.app.core.history.WorkEntryVisibilityPolicy
 import com.worklogai.app.core.history.WorkHistoryRepository
 import com.worklogai.app.core.history.WorkPeriodCalculator
+import com.worklogai.app.core.repository.TodoRepository
 import com.worklogai.app.core.repository.WorkEntryRepository
 import com.worklogai.app.core.repository.WorkSummaryRepository
 import com.worklogai.app.core.table.DefaultTableContentEditor
@@ -67,6 +69,10 @@ abstract class DataBindingsModule {
     @Binds
     @Singleton
     abstract fun bindWorkSummaryRepository(implementation: OfflineWorkSummaryRepository): WorkSummaryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTodoRepository(implementation: OfflineTodoRepository): TodoRepository
 
     @Binds
     @Singleton

@@ -13,6 +13,7 @@ import com.worklogai.app.core.common.time.TimeProvider
 import com.worklogai.app.core.database.codec.KotlinxTableContentCodec
 import com.worklogai.app.core.database.entity.AttachmentEntity
 import com.worklogai.app.core.database.entity.ContentBlockEntity
+import com.worklogai.app.core.database.entity.TodoEntity
 import com.worklogai.app.core.database.entity.WorkEntryEntity
 import com.worklogai.app.core.database.entity.WorkSummaryEntity
 import com.worklogai.app.core.datastore.AiSettings
@@ -21,6 +22,8 @@ import com.worklogai.app.core.history.DefaultWorkPeriodCalculator
 import com.worklogai.app.core.model.ContentBlockType
 import com.worklogai.app.core.model.SummaryStatus
 import com.worklogai.app.core.model.SummaryType
+import com.worklogai.app.core.model.TodoPriority
+import com.worklogai.app.core.model.TodoStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +32,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -49,6 +55,7 @@ import java.util.zip.ZipOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
+@Suppress("LargeClass")
 class BackupArchiveServiceTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val attachmentRoot = File(context.filesDir, "attachments")
@@ -71,8 +78,156 @@ class BackupArchiveServiceTest {
             val preview = service.inspectBackup(ByteArrayInputStream(output.toByteArray()))
 
             assertTrue(created is BackupOperationResult.Success)
-            assertEquals(1, (preview as BackupOperationResult.Success).value.entryCount)
+            val value = (preview as BackupOperationResult.Success).value
+            assertEquals(1, value.entryCount)
+            assertEquals(1, value.todoCount)
             assertFalse(output.toString().contains("super-secret"))
+        }
+    }
+
+    @Test
+    fun `version one backup remains restorable and replaces todos with an empty list`() {
+        runBlocking {
+            val versionTwo = createArchive()
+            val versionOne =
+                rewriteArchive(versionTwo) { entries ->
+                    val manifest =
+                        backupJson.decodeFromString<BackupManifest>(
+                            entries.getValue(BackupArchiveContract.MANIFEST_FILE).decodeToString(),
+                        )
+                    val v1Manifest =
+                        manifest.copy(
+                            formatVersion = 1,
+                            databaseVersion = 1,
+                            todoCount = 0,
+                            files = manifest.files.filterNot { it.path == BackupArchiveContract.TODOS_FILE },
+                        )
+                    val legacyManifestJson =
+                        JsonObject(
+                            backupJson
+                                .encodeToJsonElement(v1Manifest)
+                                .jsonObject
+                                .filterKeys { it != "todoCount" },
+                        ).toString()
+                    entries
+                        .filterKeys { it != BackupArchiveContract.TODOS_FILE }
+                        .plus(
+                            BackupArchiveContract.MANIFEST_FILE to
+                                legacyManifestJson.encodeToByteArray(),
+                        )
+                }
+            val target = FakeGateway(snapshot(entryId = "current"))
+            val store = TestAttachmentFileStore(attachmentRoot)
+
+            val preview = service(target, store).inspectBackup(ByteArrayInputStream(versionOne))
+            val restored = service(target, store).restoreBackup(ByteArrayInputStream(versionOne))
+
+            assertEquals(0, (preview as BackupOperationResult.Success).value.todoCount)
+            assertTrue(restored is BackupOperationResult.Success)
+            assertTrue(target.current.todos.isEmpty())
+            assertEquals(
+                "entry",
+                target.current.entries
+                    .single()
+                    .id,
+            )
+        }
+    }
+
+    @Test
+    fun `version two validates todo count fields relations and safety limit`() {
+        runBlocking {
+            val archive = createArchive()
+            val countMismatch = rewriteManifest(archive) { it.copy(todoCount = it.todoCount + 1) }
+            val missingTodoCount =
+                rewriteArchive(archive) { entries ->
+                    val manifest =
+                        backupJson
+                            .parseToJsonElement(
+                                entries
+                                    .getValue(BackupArchiveContract.MANIFEST_FILE)
+                                    .decodeToString(),
+                            ).jsonObject
+                    entries +
+                        (
+                            BackupArchiveContract.MANIFEST_FILE to
+                                JsonObject(manifest.filterKeys { it != "todoCount" })
+                                    .toString()
+                                    .encodeToByteArray()
+                        )
+                }
+            val invalidLink =
+                rewritePayload(archive) { payload ->
+                    payload.copy(
+                        todos = payload.todos.map { it.copy(linkedContentBlockId = "missing-block") },
+                    )
+                }
+            val invalidBlockTypeLink =
+                rewritePayload(archive) { payload ->
+                    payload.copy(
+                        todos = payload.todos.map { it.copy(linkedContentBlockId = "image") },
+                    )
+                }
+            val negativeOrder =
+                rewritePayload(archive) { payload ->
+                    payload.copy(todos = payload.todos.map { it.copy(sortOrder = -1) })
+                }
+            val recordLimited =
+                BackupArchiveReader(
+                    KotlinxTableContentCodec(),
+                    DefaultWorkPeriodCalculator(),
+                    BackupSafetyLimits(maxTodos = 0),
+                )
+
+            assertTrue(inspect(countMismatch) is BackupOperationResult.Failure)
+            assertTrue(inspect(missingTodoCount) is BackupOperationResult.Failure)
+            assertTrue(inspect(invalidLink) is BackupOperationResult.Failure)
+            assertTrue(inspect(invalidBlockTypeLink) is BackupOperationResult.Failure)
+            assertTrue(inspect(negativeOrder) is BackupOperationResult.Failure)
+            assertTrue(isReadFailure(recordLimited, archive))
+        }
+    }
+
+    @Test
+    fun `version two rejects malformed duplicate and inconsistent todo records`() {
+        runBlocking {
+            val archive = createArchive()
+            val invalidArchives =
+                listOf(
+                    rewritePayload(archive) { payload ->
+                        payload.copy(todos = payload.todos + payload.todos.single())
+                    },
+                    rewritePayload(archive) { payload ->
+                        payload.copy(todos = payload.todos.map { it.copy(scheduledDate = "not-a-date") })
+                    },
+                    rewritePayload(archive) { payload ->
+                        payload.copy(todos = payload.todos.map { it.copy(priority = "TOP") })
+                    },
+                    rewritePayload(archive) { payload ->
+                        payload.copy(todos = payload.todos.map { it.copy(status = "WAITING") })
+                    },
+                    rewritePayload(archive) { payload ->
+                        payload.copy(todos = payload.todos.map { it.copy(title = "x".repeat(201)) })
+                    },
+                    rewritePayload(archive) { payload ->
+                        payload.copy(todos = payload.todos.map { it.copy(completedAt = null) })
+                    },
+                    rewritePayload(archive) { payload ->
+                        payload.copy(
+                            todos =
+                                payload.todos.map {
+                                    it.copy(
+                                        status = TodoStatus.NOT_STARTED.name,
+                                        completedAt = NOW.toString(),
+                                    )
+                                },
+                        )
+                    },
+                )
+
+            invalidArchives.forEach { invalid ->
+                assertTrue(inspect(invalid) is BackupOperationResult.Failure)
+            }
         }
     }
 
@@ -101,6 +256,10 @@ class BackupArchiveServiceTest {
             )
             assertTrue(sourceStore.fileFor("images/picture.jpg")!!.isFile)
             assertFalse(sourceStore.fileFor("images/old.jpg")!!.exists())
+            val restoredTodo = target.current.todos.single()
+            assertEquals(TodoPriority.HIGH, restoredTodo.priority)
+            assertEquals(TodoStatus.DONE, restoredTodo.status)
+            assertEquals("todo-record", restoredTodo.linkedContentBlockId)
         }
     }
 
@@ -291,7 +450,7 @@ class BackupArchiveServiceTest {
                     payload.copy(
                         blocks =
                             payload.blocks +
-                                payload.blocks.single().copy(
+                                payload.blocks.first().copy(
                                     id = "other-block",
                                     blockType = ContentBlockType.TEXT.name,
                                     textContent = "text",
@@ -581,6 +740,7 @@ class BackupArchiveServiceTest {
                         entries.getValue(BackupArchiveContract.SUMMARIES_FILE).decodeToString(),
                     ),
                     backupJson.decodeFromString(entries.getValue(BackupArchiveContract.SETTINGS_FILE).decodeToString()),
+                    backupJson.decodeFromString(entries.getValue(BackupArchiveContract.TODOS_FILE).decodeToString()),
                 )
             val changed = transform(payload)
             val replacementFiles =
@@ -601,6 +761,8 @@ class BackupArchiveServiceTest {
                         backupJson.encodeToString(changed.summaries).encodeToByteArray(),
                     BackupArchiveContract.SETTINGS_FILE to
                         backupJson.encodeToString(changed.settings).encodeToByteArray(),
+                    BackupArchiveContract.TODOS_FILE to
+                        backupJson.encodeToString(changed.todos).encodeToByteArray(),
                 )
             val changedManifest =
                 manifest.copy(
@@ -608,6 +770,7 @@ class BackupArchiveServiceTest {
                     blockCount = changed.blocks.size,
                     attachmentCount = changed.attachments.size,
                     summaryCount = changed.summaries.size,
+                    todoCount = changed.todos.size,
                     files =
                         manifest.files.map { file ->
                             replacementFiles[file.path]?.let { bytes ->
@@ -646,7 +809,20 @@ class BackupArchiveServiceTest {
     private fun snapshot(entryId: String = "entry") =
         BackupDatabaseSnapshot(
             entries = listOf(WorkEntryEntity(entryId, DATE, "Title", true, false, NOW, NOW)),
-            blocks = listOf(ContentBlockEntity("image", entryId, ContentBlockType.IMAGE, 0, null, null, NOW, NOW)),
+            blocks =
+                listOf(
+                    ContentBlockEntity("image", entryId, ContentBlockType.IMAGE, 0, null, null, NOW, NOW),
+                    ContentBlockEntity(
+                        "todo-record",
+                        entryId,
+                        ContentBlockType.TEXT,
+                        1,
+                        "已完成：完成备份验证",
+                        null,
+                        NOW,
+                        NOW,
+                    ),
+                ),
             attachments =
                 listOf(
                     AttachmentEntity(
@@ -678,6 +854,23 @@ class BackupArchiveServiceTest {
                         NOW,
                         NOW,
                         NOW,
+                    ),
+                ),
+            todos =
+                listOf(
+                    TodoEntity(
+                        id = "todo",
+                        scheduledDate = DATE,
+                        title = "完成备份验证",
+                        note = "模拟数据",
+                        priority = TodoPriority.HIGH,
+                        status = TodoStatus.DONE,
+                        sortOrder = 0,
+                        completionNote = "已通过",
+                        linkedContentBlockId = "todo-record",
+                        createdAt = NOW,
+                        updatedAt = NOW,
+                        completedAt = NOW,
                     ),
                 ),
         )

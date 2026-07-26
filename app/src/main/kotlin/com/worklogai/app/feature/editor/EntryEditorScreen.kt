@@ -11,10 +11,11 @@ import java.time.LocalDate
 fun EntryEditorScreen(
     entryDate: String?,
     onInvalidDate: () -> Unit,
+    onOpenEntry: (LocalDate) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val date = entryDate?.let(::parseDateOrNull)
-    if (date == null || date > LocalDate.now()) {
+    if (date == null) {
         LaunchedEffect(entryDate) { onInvalidDate() }
         EmptyState(
             title = "无法打开该日期",
@@ -22,7 +23,11 @@ fun EntryEditorScreen(
             modifier = modifier,
         )
     } else {
-        TodayScreen(followCurrentDate = false, modifier = modifier)
+        TodayScreen(
+            followCurrentDate = false,
+            onOpenEntry = onOpenEntry,
+            modifier = modifier,
+        )
     }
 }
 

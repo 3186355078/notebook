@@ -183,8 +183,10 @@ class DataManagementViewModelTest {
     private class FakeMarkdownExportService : MarkdownExportService {
         var summaryRequestCount = 0
 
-        override suspend fun createEntryDocument(date: LocalDate): MarkdownExportResult =
-            MarkdownExportResult.Success(MarkdownDocument("工作记录_$date.md", "# 日志"))
+        override suspend fun createEntryDocument(
+            date: LocalDate,
+            includeTodos: Boolean,
+        ): MarkdownExportResult = MarkdownExportResult.Success(MarkdownDocument("工作记录_$date.md", "# 日志"))
 
         override suspend fun createSummaryDocument(
             type: SummaryType,

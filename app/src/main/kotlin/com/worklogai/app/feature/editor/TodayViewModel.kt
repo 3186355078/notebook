@@ -122,6 +122,17 @@ class TodayViewModel
         private fun loadDate(date: LocalDate) {
             observationJob?.cancel()
             savedStateHandle[SELECTED_DATE_KEY] = date.toString()
+            if (date > timeProvider.today()) {
+                entriesByDate[date] = null
+                _uiState.value =
+                    TodayUiState(
+                        date = date,
+                        followsCurrentDate = followsCurrentDate,
+                        isLoading = false,
+                        isFuturePlanning = true,
+                    )
+                return
+            }
             _uiState.value = TodayUiState(date = date, followsCurrentDate = followsCurrentDate)
             observationJob =
                 viewModelScope.launch {

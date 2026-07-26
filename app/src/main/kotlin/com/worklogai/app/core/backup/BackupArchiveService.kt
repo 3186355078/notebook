@@ -22,6 +22,7 @@ data class BackupPreview(
     val attachmentCount: Int,
     val summaryCount: Int,
     val warningCount: Int,
+    val todoCount: Int = 0,
 )
 
 sealed interface BackupOperationResult<out T> {

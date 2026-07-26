@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableRow
@@ -47,7 +48,7 @@ fun TableBlockEditor(
                 value = content.title.orEmpty(),
                 onValueChange = callbacks.onTitleChanged,
                 label = { Text("表格标题（可选）") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("table_title_${block.id}"),
             )
             Column(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 TableHeader(
@@ -67,13 +68,20 @@ fun TableBlockEditor(
                 }
             }
             Row {
-                OutlinedButton(onClick = callbacks.onAddRow, enabled = content.rows.size < 50) {
+                OutlinedButton(
+                    onClick = callbacks.onAddRow,
+                    enabled = content.rows.size < 50,
+                    modifier = Modifier.testTag("table_add_row_${block.id}"),
+                ) {
                     Text("添加一行")
                 }
                 OutlinedButton(
                     onClick = callbacks.onAddColumn,
                     enabled = content.columns.size < 8,
-                    modifier = Modifier.padding(start = 8.dp),
+                    modifier =
+                        Modifier
+                            .padding(start = 8.dp)
+                            .testTag("table_add_column_${block.id}"),
                 ) {
                     Text("添加一列")
                 }
@@ -120,7 +128,10 @@ private fun TableRowEditor(
                 onValueChange = { onCellChanged(row.id, column.id, it) },
                 label = { Text(column.name.ifBlank { "列" }) },
                 minLines = 1,
-                modifier = Modifier.padding(end = 8.dp),
+                modifier =
+                    Modifier
+                        .padding(end = 8.dp)
+                        .testTag("table_cell_${row.id}_${column.id}"),
             )
         }
         OutlinedButton(onClick = { onDeleteRow(row.id) }, enabled = canDelete) {

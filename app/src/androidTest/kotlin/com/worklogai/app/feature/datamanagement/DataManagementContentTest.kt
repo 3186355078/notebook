@@ -27,7 +27,6 @@ class DataManagementContentTest {
             }
         }
 
-        composeRule.onNodeWithText("数据管理").assertIsDisplayed()
         composeRule.onNodeWithText("创建完整备份").assertIsDisplayed()
         composeRule.onNodeWithText("从备份恢复").assertIsDisplayed()
         composeRule
@@ -41,12 +40,22 @@ class DataManagementContentTest {
         render(
             DataManagementUiState(
                 exportDate = "2026-07-14",
-                restorePreview = BackupPreview(Instant.parse("2026-07-14T08:00:00Z"), 2, 3, 1, 1, 1),
+                restorePreview =
+                    BackupPreview(
+                        createdAt = Instant.parse("2026-07-14T08:00:00Z"),
+                        entryCount = 2,
+                        blockCount = 3,
+                        attachmentCount = 1,
+                        summaryCount = 1,
+                        warningCount = 1,
+                        todoCount = 4,
+                    ),
             ),
         )
 
         composeRule.onNodeWithText("确认恢复备份？").assertIsDisplayed()
         composeRule.onNodeWithText("2 条日志", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("4 条待办", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("1 个缺失图片", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("确认替换当前数据").assertIsDisplayed()
     }

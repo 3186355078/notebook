@@ -46,6 +46,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.BuildConfig
+import com.worklogai.app.core.designsystem.component.WorkLogSection
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -107,23 +108,43 @@ internal fun SettingsContent(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("大模型服务", style = MaterialTheme.typography.titleLarge)
-        ProviderModeControl(state, onAction)
-        ProviderConfiguration(state, showApiKey, onAction, onShowApiKeyChanged = { showApiKey = it })
-        SettingsActions(state, onAction)
-        AutoSummarySection(state, onAction)
-        TextButton(
-            onClick = onOpenDataManagement,
-            modifier = Modifier.semantics { contentDescription = "数据管理" },
-        ) { Text("数据管理") }
-        Text(
-            "API Key 仅以 Android Keystore 保护的密文保存在本机，不会写入工作日志或普通设置。",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            "WorkLog AI ${BuildConfig.VERSION_NAME}",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        WorkLogSection(
+            title = "外观",
+            description = "跟随系统浅色/深色模式；Android 12 及以上默认使用系统动态配色。",
+        ) {
+            Text("主题与系统保持一致，优先级同时使用文字和图标区分。")
+        }
+        WorkLogSection(title = "AI 服务") {
+            ProviderModeControl(state, onAction)
+            ProviderConfiguration(state, showApiKey, onAction, onShowApiKeyChanged = { showApiKey = it })
+            SettingsActions(state, onAction)
+        }
+        WorkLogSection(
+            title = "自动总结",
+            description = "默认关闭，仅处理已经结束且允许用于 AI 的工作记录周期。",
+        ) {
+            AutoSummarySection(state, onAction)
+        }
+        WorkLogSection(title = "数据管理") {
+            Text("导出 Markdown，或创建和恢复包含待办的完整本地备份。")
+            TextButton(
+                onClick = onOpenDataManagement,
+                modifier = Modifier.semantics { contentDescription = "数据管理" },
+            ) { Text("打开数据管理") }
+        }
+        WorkLogSection(title = "隐私与安全") {
+            Text(
+                "API Key 仅以 Android Keystore 保护的密文保存在本机，不会写入工作日志、待办或备份。",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                "待办不会自动发送给 AI；只有主动同步为允许 AI 处理的工作记录后才可能参与总结。",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        WorkLogSection(title = "关于") {
+            Text("WorkLog AI ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
+        }
     }
     if (state.showAutoSummaryConsent) {
         AutoSummaryConsentDialog(
@@ -240,7 +261,6 @@ private fun AutoSummarySection(
     state: AiSettingsUiState,
     onAction: (AiSettingsAction) -> Unit,
 ) {
-    Text("自动总结", style = MaterialTheme.typography.titleLarge)
     SettingSwitchRow(
         title = "自动生成周报",
         description = "仅在已结束自然周、设备条件允许时检查。",

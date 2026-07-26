@@ -159,6 +159,29 @@ Room database version 与备份协议版本继续分别为 1，Schema 未变化�
 
 阶段 9 不增加主业务功能，不 push、不上传应用商店。全部完成后进入内部试用观察期，只优先处理崩溃、ANR、数据丢失、兼容性和安全阻断问题。
 
+## 阶段 10：每日优先级待办、工作记录联动与整体 UI 升级
+
+状态：`[x]` 已完成并通过完整工程回归、Android 16 真机验收与安全检查。
+
+- [x] 开发版本更新为 versionName 0.2.0-dev、versionCode 2，并在本地功能分支实施。
+- [x] 新增 `DailyTodo`、四级优先级、四种状态、稳定 sortOrder、Todo DAO/Repository。
+- [x] Room 提升到 version 2，保留 Schema 1、新增 Schema 2，并提供只创建待办表/索引/外键的 Migration 1→2。
+- [x] 待办完成并记录使用 Room 单事务；工作记录转待办保留原文；删除内容块通过外键 SET NULL 解绑。
+- [x] 昨日未完成项仅手动迁移；未来日期允许规划待办但禁止提前创建工作记录。
+- [x] 备份格式提升到 v2，新增 todo_items、todoCount、maxTodos，并继续恢复 v1 备份。
+- [x] 单日日志 Markdown 可选输出待办，不输出 ID、链接和内部排序。
+- [x] 新增统一颜色、Typography、Spacing、Shape、Motion Token，并刷新 Today、History、Settings、Data Management 与空状态。
+- [x] Todo JVM/Robolectric 与 Compose 测试源码已新增。
+- [x] 强制无缓存完整回归、Connected Android Test、人工 UI/真机冒烟、安全扫描及两次本地提交。
+
+阶段 10 不实现提醒、循环、子任务、云同步、加密备份或 0.2.0 Release；不 push，不创建 Release Tag。
+
+最终工程验证：246 个 JVM/Robolectric 测试全部通过（阶段 9 基线 213 个，阶段 10 新增 33 个），41 个 test suites，failures/errors/skipped 均为 0。阶段 10 新增测试由 Migration 1 个、Todo Repository 10 个、Todo UseCase 6 个、Todo ViewModel 12 个、Backup v2 3 个及 Markdown Todo 1 个组成。`assembleDebug`、Android Test 编译、Lint、Detekt、ktlint 均使用 `--rerun-tasks --no-build-cache` 完整执行并通过。
+
+HONOR PPG-AN00（Android 16 / API 36）执行 51 个 Instrumentation/Compose 方法，包含原基线 41 个和阶段 10 新增 Todo UI 10 个，failures/errors/skipped 均为 0。真机覆盖 50 条 Todo、四级优先级、状态与无障碍排序、v2 备份 50 条 Todo 和内容块链接恢复，并完成浅色、深色、1.5× 字体与横屏人工检查。回归首次发现表格底部结构按钮被浮动快速记录按钮遮挡，已改为列表内紧凑工具栏并由目标用例及完整 51 项回归验证。
+
+Room version 为 2，Schema 1 保留，Schema 2 SHA-256 为 `944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D`，Migration 1→2 不修改既有表。备份格式为 v2，仍兼容读取 v1；未生成 0.2.0 Release，未创建 Release Tag，未 push。
+
 ## 每轮固定验证
 
 根据改动范围执行以下命令，并在汇报中逐条写出真实结果：

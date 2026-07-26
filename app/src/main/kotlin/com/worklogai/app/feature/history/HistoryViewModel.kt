@@ -102,10 +102,6 @@ class HistoryViewModel
         }
 
         private fun selectDate(date: LocalDate) {
-            if (date > today) {
-                _events.trySend(HistoryUiEvent.ShowMessage("暂不支持查看未来日期"))
-                return
-            }
             _uiState.update {
                 it.copy(
                     mode = HistoryMode.DAY,
@@ -219,11 +215,7 @@ class HistoryViewModel
         }
 
         private fun openEntry(date: LocalDate) {
-            if (date > today) {
-                _events.trySend(HistoryUiEvent.ShowMessage("暂不支持记录未来日期"))
-            } else {
-                _events.trySend(HistoryUiEvent.OpenEditor(date))
-            }
+            _events.trySend(HistoryUiEvent.OpenEditor(date))
         }
     }
 

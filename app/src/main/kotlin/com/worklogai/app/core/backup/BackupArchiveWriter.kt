@@ -79,6 +79,7 @@ internal class BackupArchiveWriter
                 attachments.map { it.toBackup(includedPaths[it.localPath] == true) },
                 summaries.map { it.toBackup() },
                 settings.toBackup(),
+                todos.map { it.toBackup() },
             )
         }
 
@@ -103,6 +104,7 @@ internal class BackupArchiveWriter
                 writeJson(zip, BackupArchiveContract.BLOCKS_FILE, stablePayload.blocks, files)
                 writeJson(zip, BackupArchiveContract.ATTACHMENTS_FILE, stablePayload.attachments, files)
                 writeJson(zip, BackupArchiveContract.SUMMARIES_FILE, stablePayload.summaries, files)
+                writeJson(zip, BackupArchiveContract.TODOS_FILE, stablePayload.todos, files)
                 writeJson(zip, BackupArchiveContract.SETTINGS_FILE, stablePayload.settings, files)
                 stablePayload.attachments.filter(BackupAttachment::fileIncluded).forEach { attachment ->
                     val source = attachmentFileStore.fileFor(attachment.localPath)
@@ -126,6 +128,7 @@ internal class BackupArchiveWriter
                         attachmentCount = stablePayload.attachments.size,
                         summaryCount = stablePayload.summaries.size,
                         files = files.sortedBy(BackupFileManifest::path),
+                        todoCount = stablePayload.todos.size,
                     )
                 writeEntry(
                     zip,

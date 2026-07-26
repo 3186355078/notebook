@@ -6,6 +6,7 @@ data class BlockControls(
     val onMoveUp: () -> Unit,
     val onMoveDown: () -> Unit,
     val onDelete: () -> Unit,
+    val onConvertToTodo: (() -> Unit)? = null,
 )
 
 data class TextBlockCallbacks(

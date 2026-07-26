@@ -15,6 +15,7 @@ internal object BackupArchiveContract {
     const val BLOCKS_FILE = "data/content_blocks.json"
     const val ATTACHMENTS_FILE = "data/attachments.json"
     const val SUMMARIES_FILE = "data/work_summaries.json"
+    const val TODOS_FILE = "data/todo_items.json"
     const val SETTINGS_FILE = "data/settings.json"
     const val ATTACHMENTS_ROOT = "attachments"
     const val BACKUP_CACHE_DIRECTORY = "worklog-backup"
@@ -31,6 +32,7 @@ internal object BackupArchiveContract {
     const val MAX_BLOCKS = 1_000_000
     const val MAX_ATTACHMENTS = 100_000
     const val MAX_SUMMARIES = 100_000
+    const val MAX_TODOS = 1_000_000
     const val MAX_COMPRESSION_RATIO = 100L
     const val MAX_PATH_LENGTH = 240
     const val IMAGE_HEADER_SIZE = 12
@@ -75,6 +77,7 @@ internal object BackupArchivePaths {
                     this == BackupArchiveContract.BLOCKS_FILE ||
                     this == BackupArchiveContract.ATTACHMENTS_FILE ||
                     this == BackupArchiveContract.SUMMARIES_FILE ||
+                    this == BackupArchiveContract.TODOS_FILE ||
                     this == BackupArchiveContract.SETTINGS_FILE ||
                     startsWith("${BackupArchiveContract.ATTACHMENTS_ROOT}/images/")
             )

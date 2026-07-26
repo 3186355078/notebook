@@ -2,9 +2,11 @@ package com.worklogai.app.core.database.di
 
 import android.content.Context
 import androidx.room.Room
+import com.worklogai.app.core.database.MIGRATION_1_2
 import com.worklogai.app.core.database.WorkLogDatabase
 import com.worklogai.app.core.database.dao.AttachmentDao
 import com.worklogai.app.core.database.dao.ContentBlockDao
+import com.worklogai.app.core.database.dao.TodoDao
 import com.worklogai.app.core.database.dao.WorkEntryDao
 import com.worklogai.app.core.database.dao.WorkSummaryBackupDao
 import com.worklogai.app.core.database.dao.WorkSummaryDao
@@ -28,7 +30,8 @@ object DatabaseModule {
                 context,
                 WorkLogDatabase::class.java,
                 WorkLogDatabase.DATABASE_NAME,
-            ).build()
+            ).addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideWorkEntryDao(database: WorkLogDatabase): WorkEntryDao = database.workEntryDao()
@@ -44,4 +47,7 @@ object DatabaseModule {
 
     @Provides
     fun provideWorkSummaryBackupDao(database: WorkLogDatabase): WorkSummaryBackupDao = database.workSummaryBackupDao()
+
+    @Provides
+    fun provideTodoDao(database: WorkLogDatabase): TodoDao = database.todoDao()
 }

@@ -17,6 +17,7 @@ data class TodayUiState(
     val errorMessage: String? = null,
     val isStructureOperationInProgress: Boolean = false,
     val isImageImporting: Boolean = false,
+    val isFuturePlanning: Boolean = false,
 ) {
     val canEdit: Boolean
         get() = !isLoading && entryId != null

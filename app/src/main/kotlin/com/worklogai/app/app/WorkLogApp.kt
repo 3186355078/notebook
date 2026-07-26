@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,7 +83,6 @@ fun WorkLogApp(
                         topLevelDestination = topLevelDestination,
                     ),
                 onNavigateUp = navController::navigateUp,
-                onOpenSettings = { navController.navigate(SETTINGS_ROUTE) },
             )
         },
         bottomBar = {
@@ -109,7 +107,6 @@ fun WorkLogApp(
 private fun WorkLogTopAppBar(
     state: WorkLogTopAppBarState,
     onNavigateUp: () -> Unit,
-    onOpenSettings: () -> Unit,
 ) {
     val isEntryEditor = state.isEntryEditor
     TopAppBar(
@@ -129,7 +126,7 @@ private fun WorkLogTopAppBar(
         navigationIcon = {
             val showNavigateUp =
                 when {
-                    state.isSettings -> true
+                    state.isSettings -> false
                     state.isDataManagement -> true
                     state.isEntryEditor -> true
                     else -> state.isSummaryPeriod
@@ -139,16 +136,6 @@ private fun WorkLogTopAppBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = stringResource(R.string.back),
-                    )
-                }
-            }
-        },
-        actions = {
-            if (state.topLevelDestination == TopLevelDestination.TODAY) {
-                IconButton(onClick = onOpenSettings) {
-                    Icon(
-                        imageVector = Icons.Outlined.Settings,
-                        contentDescription = stringResource(R.string.settings),
                     )
                 }
             }
@@ -204,7 +191,9 @@ private fun WorkLogNavHost(
         modifier = modifier,
     ) {
         composable(TopLevelDestination.TODAY.route) {
-            TodayScreen()
+            TodayScreen(
+                onOpenEntry = { date -> navController.navigate(entryEditorRoute(date.toString())) },
+            )
         }
         composable(TopLevelDestination.HISTORY.route) {
             HistoryScreen(onOpenEntry = { date -> navController.navigate(entryEditorRoute(date.toString())) })
@@ -213,6 +202,7 @@ private fun WorkLogNavHost(
             EntryEditorScreen(
                 entryDate = entry.arguments?.getString(ENTRY_DATE_ARGUMENT),
                 onInvalidDate = navController::navigateUp,
+                onOpenEntry = { date -> navController.navigate(entryEditorRoute(date.toString())) },
             )
         }
         composable(TopLevelDestination.SUMMARY.route) {

@@ -19,6 +19,7 @@ internal data class BackupSafetyLimits(
     val maxBlocks: Int = BackupArchiveContract.MAX_BLOCKS,
     val maxAttachments: Int = BackupArchiveContract.MAX_ATTACHMENTS,
     val maxSummaries: Int = BackupArchiveContract.MAX_SUMMARIES,
+    val maxTodos: Int = BackupArchiveContract.MAX_TODOS,
 ) {
     init {
         require(maxArchiveSizeBytes > 0)
@@ -33,5 +34,6 @@ internal data class BackupSafetyLimits(
         require(maxBlocks >= 0)
         require(maxAttachments >= 0)
         require(maxSummaries >= 0)
+        require(maxTodos >= 0)
     }
 }

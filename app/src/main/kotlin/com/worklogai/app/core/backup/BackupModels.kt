@@ -2,6 +2,7 @@ package com.worklogai.app.core.backup
 
 import com.worklogai.app.core.database.entity.AttachmentEntity
 import com.worklogai.app.core.database.entity.ContentBlockEntity
+import com.worklogai.app.core.database.entity.TodoEntity
 import com.worklogai.app.core.database.entity.WorkEntryEntity
 import com.worklogai.app.core.database.entity.WorkSummaryEntity
 import com.worklogai.app.core.datastore.AiSettings
@@ -13,7 +14,8 @@ import java.time.Instant
 import java.time.LocalDate
 
 const val BACKUP_FORMAT_NAME = "worklog-ai-backup"
-const val BACKUP_FORMAT_VERSION = 1
+const val BACKUP_FORMAT_VERSION = 2
+const val MIN_SUPPORTED_BACKUP_FORMAT_VERSION = 1
 
 @Serializable
 data class BackupManifest(
@@ -29,6 +31,7 @@ data class BackupManifest(
     val attachmentCount: Int,
     val summaryCount: Int,
     val files: List<BackupFileManifest>,
+    val todoCount: Int = 0,
 )
 
 @Serializable
@@ -109,11 +112,28 @@ data class BackupSettings(
     val autoSummaryConsentAcknowledged: Boolean,
 )
 
+@Serializable
+data class BackupTodoItem(
+    val id: String,
+    val scheduledDate: String,
+    val title: String,
+    val note: String? = null,
+    val priority: String,
+    val status: String,
+    val sortOrder: Int,
+    val completionNote: String? = null,
+    val linkedContentBlockId: String? = null,
+    val createdAt: String,
+    val updatedAt: String,
+    val completedAt: String? = null,
+)
+
 internal data class BackupDatabaseSnapshot(
     val entries: List<WorkEntryEntity>,
     val blocks: List<ContentBlockEntity>,
     val attachments: List<AttachmentEntity>,
     val summaries: List<WorkSummaryEntity>,
+    val todos: List<TodoEntity> = emptyList(),
 )
 
 internal data class BackupPayload(
@@ -122,6 +142,7 @@ internal data class BackupPayload(
     val attachments: List<BackupAttachment>,
     val summaries: List<BackupWorkSummary>,
     val settings: BackupSettings,
+    val todos: List<BackupTodoItem> = emptyList(),
 )
 
 internal fun WorkEntryEntity.toBackup(): BackupWorkEntry =
