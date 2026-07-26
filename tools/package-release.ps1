@@ -1,8 +1,12 @@
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "0.2.0",
+    [int]$VersionCode = 2,
     [string]$CertificateSha256 = "15668D9F84061C17CF099A99FF84E1610113204F86311C1044454A30CFC3E801",
     [string]$SdkRoot = "D:\SDK",
-    [int]$InstrumentationTests = 41
+    [int]$InstrumentationTests = 51,
+    [int]$RoomVersion = 2,
+    [int]$BackupFormatVersion = 2,
+    [string]$SchemaSha256 = "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D"
 )
 
 $ErrorActionPreference = "Stop"
@@ -101,7 +105,7 @@ $aabSize = (Get-Item -LiteralPath $aabTarget).Length
 @"
 WorkLog AI Internal Release Report
 Version name: $Version
-Version code: 1
+Version code: $VersionCode
 Git commit: $head
 Tag: $tag
 Build date: $builtAt
@@ -120,12 +124,15 @@ APK SHA-256: $apkHash
 AAB: $aabName ($aabSize bytes)
 AAB SHA-256: $aabHash
 
-Room database version: 1
-Backup format version: 1
+Room database version: $RoomVersion
+Room schema SHA-256: $SchemaSha256
+Migration: 1 -> 2; destructive migration disabled
+Backup format version: $BackupFormatVersion
+Backup compatibility: v1 read/restore and v2 Todo backup/restore validated
 Validated device: HONOR PPG-AN00, Android 16 / API 36 (serial number omitted)
 Compatibility waiver: Android 10-13 second-device/emulator testing was explicitly skipped by the user and is not claimed as passed.
 
-Known limitations: backups are not encrypted; other OEM SAF/background behavior, larger real-world backups, and external OpenAI-compatible services remain internal-trial observations.
+Known limitations: Todo reminders, recurring tasks, and subtasks are not implemented; backups are not encrypted; other OEM SAF/background behavior and external OpenAI-compatible services remain internal-trial observations.
 No keystore, password, API key, user data, device serial number, or test backup is included in this directory.
 "@ | Set-Content -LiteralPath (Join-Path $artifactDirectory "RELEASE_REPORT.txt") -Encoding utf8
 

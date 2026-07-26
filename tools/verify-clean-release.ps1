@@ -78,13 +78,19 @@ try {
             $errors += [int]$suiteXml.testsuite.errors
             $skipped += [int]$suiteXml.testsuite.skipped
         }
-        if ($tests -ne 213 -or $failures -ne 0 -or $errors -ne 0 -or $skipped -ne 0) {
-            throw "Clean-clone JVM test totals do not match the accepted 213/213 baseline."
+        if ($tests -ne 246 -or $failures -ne 0 -or $errors -ne 0 -or $skipped -ne 0) {
+            throw "Clean-clone JVM test totals do not match the accepted 246/246 baseline."
         }
 
         & .\tools\package-release.ps1 `
+            -Version "0.2.0" `
+            -VersionCode 2 `
             -CertificateSha256 $CertificateSha256 `
-            -SdkRoot $SdkRoot
+            -SdkRoot $SdkRoot `
+            -InstrumentationTests 51 `
+            -RoomVersion 2 `
+            -BackupFormatVersion 2 `
+            -SchemaSha256 "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D"
         if ($LASTEXITCODE -ne 0) {
             throw "Clean-clone artifact signature verification failed."
         }
@@ -120,7 +126,8 @@ try {
         $resolvedClone = [IO.Path]::GetFullPath($clonePath)
         if ($resolvedClone.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -and
             [IO.Path]::GetFileName($resolvedClone) -like "worklog-ai-clean-release-*") {
-            Remove-Item -LiteralPath $resolvedClone -Recurse -Force
+            $extendedClonePath = "\\?\$resolvedClone"
+            [IO.Directory]::Delete($extendedClonePath, $true)
         }
     }
 }
