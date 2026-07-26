@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.WorkLogActionRow
+import com.worklogai.app.core.designsystem.component.WorkLogActionRowContent
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
 import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogSection
@@ -167,27 +168,48 @@ private fun MarkdownExportSection(
         description = "用于阅读和分享，不包含内部 ID、图片路径或 API 配置。",
     ) {
         WorkLogActionRow(
-            icon = Icons.Outlined.Description,
-            title = "导出当日日志",
-            summary = "生成包含工作记录和可选待办的 Markdown",
-            onClick = { onAction(DataManagementAction.ExportEntryMarkdown) },
-            enabled = !state.isBusy,
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Description,
+                    title = "导出当日日志",
+                    summary = "生成包含工作记录和可选待办的 Markdown",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ExportEntryMarkdown) }
+                },
             modifier = Modifier.semantics { contentDescription = "导出工作日志 Markdown" },
         )
         WorkLogActionRow(
-            icon = Icons.Outlined.Description,
-            title = "导出周报",
-            summary = "将当前周报保存为便于阅读和分享的 Markdown",
-            onClick = { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.WEEKLY)) },
-            enabled = !state.isBusy,
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Description,
+                    title = "导出周报",
+                    summary = "将当前周报保存为便于阅读和分享的 Markdown",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.WEEKLY)) }
+                },
             modifier = Modifier.semantics { contentDescription = "导出周报 Markdown" },
         )
         WorkLogActionRow(
-            icon = Icons.Outlined.Description,
-            title = "导出月报",
-            summary = "将当前月报保存为便于阅读和分享的 Markdown",
-            onClick = { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.MONTHLY)) },
-            enabled = !state.isBusy,
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Description,
+                    title = "导出月报",
+                    summary = "将当前月报保存为便于阅读和分享的 Markdown",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.MONTHLY)) }
+                },
             modifier = Modifier.semantics { contentDescription = "导出月报 Markdown" },
         )
     }
@@ -203,19 +225,33 @@ private fun BackupSection(
         description = "完整备份默认未加密；包含工作日志、待办、总结、图片和非敏感设置。",
     ) {
         WorkLogActionRow(
-            icon = Icons.Outlined.Archive,
-            title = "创建完整备份",
-            summary = "包含工作日志、待办、总结、图片和非敏感设置",
-            onClick = { onAction(DataManagementAction.CreateCompleteBackup) },
-            enabled = !state.isBusy,
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Archive,
+                    title = "创建完整备份",
+                    summary = "包含工作日志、待办、总结、图片和非敏感设置",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.CreateCompleteBackup) }
+                },
             modifier = Modifier.semantics { contentDescription = "创建完整备份" },
         )
         WorkLogActionRow(
-            icon = Icons.Outlined.Restore,
-            title = "从备份恢复",
-            summary = "预检通过并确认后，完整替换当前本地数据",
-            onClick = { onAction(DataManagementAction.ChooseBackupToRestore) },
-            enabled = !state.isBusy,
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Restore,
+                    title = "从备份恢复",
+                    summary = "预检通过并确认后，完整替换当前本地数据",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ChooseBackupToRestore) }
+                },
             modifier = Modifier.semantics { contentDescription = "从备份恢复" },
         )
         Text(

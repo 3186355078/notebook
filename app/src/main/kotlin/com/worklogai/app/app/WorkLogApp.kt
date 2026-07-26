@@ -138,6 +138,8 @@ private fun WorkLogTopAppBar(
     state: WorkLogTopAppBarState,
     onNavigateUp: () -> Unit,
 ) {
+    if (!shouldShowTopAppBar(state.topLevelDestination != null)) return
+
     val isEntryEditor = state.isEntryEditor
     TopAppBar(
         colors =
@@ -178,6 +180,8 @@ private fun WorkLogTopAppBar(
     )
 }
 
+internal fun shouldShowTopAppBar(isTopLevelDestination: Boolean): Boolean = !isTopLevelDestination
+
 private data class WorkLogTopAppBarState(
     val isSettings: Boolean,
     val isDataManagement: Boolean,
@@ -187,7 +191,7 @@ private data class WorkLogTopAppBarState(
 )
 
 @Composable
-private fun WorkLogBottomBar(
+internal fun WorkLogBottomBar(
     visible: Boolean,
     currentDestination: NavDestination?,
     onDestinationSelected: (TopLevelDestination) -> Unit,
@@ -220,7 +224,7 @@ private fun WorkLogBottomBar(
 }
 
 @Composable
-private fun WorkLogNavigationRail(
+internal fun WorkLogNavigationRail(
     visible: Boolean,
     currentDestination: NavDestination?,
     onDestinationSelected: (TopLevelDestination) -> Unit,

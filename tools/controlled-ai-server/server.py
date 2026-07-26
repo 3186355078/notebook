@@ -89,7 +89,7 @@ class ControlledAiHandler(BaseHTTPRequestHandler):
         )
         try:
             self._write(status, payload)
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             # Expected when the device-side timeout cancels the request.
             return
 

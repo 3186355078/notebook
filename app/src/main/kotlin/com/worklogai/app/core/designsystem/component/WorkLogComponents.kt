@@ -151,12 +151,9 @@ fun WorkLogContentSurface(
 
 @Composable
 fun WorkLogActionRow(
-    icon: ImageVector,
-    title: String,
-    summary: String,
-    onClick: () -> Unit,
+    content: WorkLogActionRowContent,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
@@ -164,7 +161,7 @@ fun WorkLogActionRow(
             modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = 64.dp)
-                .clickable(enabled = enabled, onClick = onClick)
+                .clickable(enabled = onClick != null, onClick = { onClick?.invoke() })
                 .padding(vertical = WorkLogSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
@@ -174,12 +171,12 @@ fun WorkLogActionRow(
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             shape = MaterialTheme.shapes.medium,
         ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.padding(WorkLogSpacing.small).size(22.dp))
+            Icon(content.icon, contentDescription = null, modifier = Modifier.padding(WorkLogSpacing.small).size(22.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(content.title, style = MaterialTheme.typography.titleMedium)
             Text(
-                summary,
+                content.summary,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -197,6 +194,12 @@ fun WorkLogActionRow(
         }
     }
 }
+
+data class WorkLogActionRowContent(
+    val icon: ImageVector,
+    val title: String,
+    val summary: String,
+)
 
 @Composable
 fun WorkLogLoadingState(

@@ -50,6 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.BuildConfig
 import com.worklogai.app.core.designsystem.component.WorkLogActionRow
+import com.worklogai.app.core.designsystem.component.WorkLogActionRowContent
 import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogSection
 import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
@@ -129,11 +130,13 @@ internal fun SettingsContent(
             description = "跟随系统浅色/深色模式；Android 12 及以上默认使用系统动态配色。",
         ) {
             WorkLogActionRow(
-                icon = Icons.Outlined.Palette,
-                title = "系统主题",
-                summary = "主题跟随系统；优先级同时使用文字、图标与局部颜色区分",
-                onClick = {},
-                enabled = false,
+                content =
+                    WorkLogActionRowContent(
+                        icon = Icons.Outlined.Palette,
+                        title = "系统主题",
+                        summary = "主题跟随系统；优先级同时使用文字、图标与局部颜色区分",
+                    ),
+                onClick = null,
                 trailing = {
                     WorkLogStatusChip(label = "自动")
                 },
@@ -152,9 +155,12 @@ internal fun SettingsContent(
         }
         WorkLogSection(title = "数据管理") {
             WorkLogActionRow(
-                icon = Icons.Outlined.DataObject,
-                title = "导出、备份与恢复",
-                summary = "导出 Markdown，或管理包含待办的完整本地备份",
+                content =
+                    WorkLogActionRowContent(
+                        icon = Icons.Outlined.DataObject,
+                        title = "导出、备份与恢复",
+                        summary = "导出 Markdown，或管理包含待办的完整本地备份",
+                    ),
                 onClick = onOpenDataManagement,
                 modifier = Modifier.semantics { contentDescription = "数据管理" },
             )

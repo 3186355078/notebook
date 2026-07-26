@@ -15,4 +15,10 @@ class WorkLogWindowLayoutTest {
         assertTrue(usesWideNavigation(WIDE_NAVIGATION_BREAKPOINT_DP))
         assertTrue(usesWideNavigation(1_024f))
     }
+
+    @Test
+    fun topLevelDestinationsOwnTheirPageHeader() {
+        assertFalse(shouldShowTopAppBar(isTopLevelDestination = true))
+        assertTrue(shouldShowTopAppBar(isTopLevelDestination = false))
+    }
 }

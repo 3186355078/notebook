@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -40,16 +40,12 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.R
 import com.worklogai.app.core.designsystem.component.EmptyState
-import com.worklogai.app.core.designsystem.component.WorkLogErrorState
-import com.worklogai.app.core.designsystem.component.WorkLogLoadingState
 import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
-import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.feature.editor.component.BlockControls
 import com.worklogai.app.feature.editor.component.DeleteBlockDialog
 import com.worklogai.app.feature.editor.component.ImageBlockEditor
-import com.worklogai.app.feature.editor.component.SaveStatusIndicator
 import com.worklogai.app.feature.editor.component.TableBlockCallbacks
 import com.worklogai.app.feature.editor.component.TableBlockEditor
 import com.worklogai.app.feature.editor.component.TextBlockCallbacks
@@ -287,16 +283,21 @@ private fun TodayEntryList(
     ) {
         item(key = "today_header") {
             TodayHeader(
-                date = state.date,
-                title =
-                    if (state.followsCurrentDate) {
-                        null
-                    } else {
-                        state.date.format(dateFormatter)
-                    },
-                dateText = state.date.format(dateFormatter),
-                todoState = todoState,
-                blockCount = state.blocks.size,
+                presentation =
+                    TodayHeaderPresentation(
+                        date = state.date,
+                        title =
+                            if (state.followsCurrentDate) {
+                                null
+                            } else {
+                                state.date.format(dateFormatter)
+                            },
+                        dateText = state.date.format(dateFormatter),
+                        todoCount = todoState.todos.size,
+                        doneCount = todoState.doneCount,
+                        inProgressCount = todoState.inProgressCount,
+                        blockCount = state.blocks.size,
+                    ),
                 saveState = state.saveState,
                 onRetrySave = { onAction(TodayAction.RetryFailedSaves) },
             )
@@ -315,38 +316,46 @@ private fun TodayEntryList(
                 onAddTable = { onAction(TodayAction.AddTableBlock) },
             )
         }
-        if (state.blocks.isEmpty()) {
-            item(key = "today_empty") {
-                EmptyState(
-                    title = stringResource(R.string.today_empty_title),
-                    body = stringResource(R.string.today_empty_body),
-                    action = {
-                        Button(onClick = { onAction(TodayAction.AddTextBlock) }) {
-                            Text(stringResource(R.string.today_add_text))
-                        }
-                    },
-                    modifier = Modifier.fillParentMaxSize(),
-                )
-            }
-        } else {
-            itemsIndexed(
-                items = state.blocks,
-                key = { _, block -> block.id },
-            ) { index, block ->
-                EditorBlockItem(
-                    presentation =
-                        EditorBlockPresentation(
-                            block = block,
-                            canMoveUp = index > 0 && !state.isStructureOperationInProgress,
-                            canMoveDown = index < state.blocks.lastIndex && !state.isStructureOperationInProgress,
-                            requestsFocus = block.id == state.focusedBlockId,
-                        ),
-                    onAction = onAction,
-                    onConvertTextBlock = { blockId ->
-                        onTodoAction(TodayTodoAction.RequestTextConversion(blockId))
-                    },
-                )
-            }
+        editorBlocks(state, onAction, onTodoAction)
+    }
+}
+
+private fun LazyListScope.editorBlocks(
+    state: TodayUiState,
+    onAction: (TodayAction) -> Unit,
+    onTodoAction: (TodayTodoAction) -> Unit,
+) {
+    if (state.blocks.isEmpty()) {
+        item(key = "today_empty") {
+            EmptyState(
+                title = stringResource(R.string.today_empty_title),
+                body = stringResource(R.string.today_empty_body),
+                action = {
+                    Button(onClick = { onAction(TodayAction.AddTextBlock) }) {
+                        Text(stringResource(R.string.today_add_text))
+                    }
+                },
+                modifier = Modifier.fillParentMaxSize(),
+            )
+        }
+    } else {
+        itemsIndexed(
+            items = state.blocks,
+            key = { _, block -> block.id },
+        ) { index, block ->
+            EditorBlockItem(
+                presentation =
+                    EditorBlockPresentation(
+                        block = block,
+                        canMoveUp = index > 0 && !state.isStructureOperationInProgress,
+                        canMoveDown = index < state.blocks.lastIndex && !state.isStructureOperationInProgress,
+                        requestsFocus = block.id == state.focusedBlockId,
+                    ),
+                onAction = onAction,
+                onConvertTextBlock = { blockId ->
+                    onTodoAction(TodayTodoAction.RequestTextConversion(blockId))
+                },
+            )
         }
     }
 }
@@ -462,56 +471,3 @@ private data class EditorBlockPresentation(
     val canMoveDown: Boolean,
     val requestsFocus: Boolean,
 )
-
-@Composable
-private fun TodayHeader(
-    date: LocalDate,
-    title: String?,
-    dateText: String,
-    todoState: TodayTodoUiState,
-    blockCount: Int,
-    saveState: SaveState,
-    onRetrySave: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
-        WorkLogPageHeader(
-            eyebrow = if (title == null) "今天" else "固定日期",
-            title = title ?: "${date.dayOfMonth}日",
-            subtitle =
-                "$dateText · 待办 ${todoState.doneCount}/${todoState.todos.size}" +
-                    " · 工作记录 $blockCount 条",
-            metrics = {
-                if (todoState.inProgressCount > 0) {
-                    WorkLogStatusChip(
-                        label = "进行中 ${todoState.inProgressCount}",
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                }
-            },
-        )
-        SaveStatusIndicator(saveState = saveState, onRetry = onRetrySave)
-    }
-}
-
-@Composable
-private fun LoadingContent(modifier: Modifier = Modifier) {
-    WorkLogLoadingState(
-        label = stringResource(R.string.today_loading),
-        modifier = modifier.fillMaxSize(),
-    )
-}
-
-@Composable
-private fun LoadErrorContent(
-    state: TodayUiState,
-    onAction: (TodayAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    WorkLogErrorState(
-        title = state.errorMessage ?: "工作记录加载失败",
-        body = stringResource(R.string.today_empty_body),
-        onRetry = { onAction(TodayAction.RetryLoad) },
-        modifier = modifier.fillMaxSize(),
-    )
-}

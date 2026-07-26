@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
@@ -155,74 +154,100 @@ internal fun SummaryContent(
         if (state.isLoading) {
             CircularProgressIndicator()
         } else {
-            Text(
-                "共 ${state.entryCount} 条记录，其中 ${state.eligibleEntryCount} 条可用于 AI 总结",
-                style = MaterialTheme.typography.bodySmall,
+            SummaryLoadedContent(state, onAction)
+        }
+    }
+}
+
+@Composable
+private fun SummaryLoadedContent(
+    state: SummaryUiState,
+    onAction: (SummaryAction) -> Unit,
+) {
+    Text(
+        "共 ${state.entryCount} 条记录，其中 ${state.eligibleEntryCount} 条可用于 AI 总结",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    SummaryFlags(state)
+    SummaryGenerationStatus(state.generationState)
+    state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    SummaryEditorOrReader(state, onAction)
+    SummaryActions(state, onAction)
+}
+
+@Composable
+private fun SummaryFlags(state: SummaryUiState) {
+    Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
+        if (state.isOutdated) {
+            WorkLogStatusChip(
+                label = "原记录已更新",
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
-                if (state.isOutdated) {
-                    WorkLogStatusChip(
-                        label = "原记录已更新",
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                }
-                if (state.wasInputTruncated) {
-                    WorkLogStatusChip(
-                        label = "部分内容已截断",
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                }
-            }
-            when (val generation = state.generationState) {
-                is SummaryGenerationState.Failed -> {
-                    Text(generation.message, color = MaterialTheme.colorScheme.error)
-                    if (generation.hasPreviousContent) {
-                        Text(
-                            "重新生成失败，当前展示上一次结果。",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-                is SummaryGenerationState.NoEligibleContent ->
-                    Text(
-                        if (generation.allEntriesBlocked) "该时间范围内的记录未允许用于 AI 总结" else "该时间范围内没有可用于总结的工作记录",
-                    )
-                SummaryGenerationState.Generating ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CircularProgressIndicator()
-                        Text("正在生成总结…")
-                    }
-                else -> Unit
-            }
-            state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (state.isEditing) {
-                OutlinedTextField(
-                    value = state.editingText,
-                    onValueChange = { value -> onAction(SummaryAction.EditingTextChanged(value)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("编辑总结") },
-                    minLines = 12,
+        }
+        if (state.wasInputTruncated) {
+            WorkLogStatusChip(
+                label = "部分内容已截断",
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryGenerationStatus(generation: SummaryGenerationState) {
+    when (generation) {
+        is SummaryGenerationState.Failed -> {
+            Text(generation.message, color = MaterialTheme.colorScheme.error)
+            if (generation.hasPreviousContent) {
+                Text(
+                    "重新生成失败，当前展示上一次结果。",
+                    style = MaterialTheme.typography.bodySmall,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { onAction(SummaryAction.SaveEditing) }) { Text("保存") }
-                    TextButton(onClick = { onAction(SummaryAction.CancelEditing) }) { Text("取消") }
-                }
-            } else {
-                state.displayContent?.let { content ->
-                    WorkLogContentSurface {
-                        SelectionContainer {
-                            Text(
-                                content,
-                                modifier = Modifier.padding(WorkLogSpacing.large),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                    }
+            }
+        }
+        is SummaryGenerationState.NoEligibleContent ->
+            Text(
+                if (generation.allEntriesBlocked) "该时间范围内的记录未允许用于 AI 总结" else "该时间范围内没有可用于总结的工作记录",
+            )
+        SummaryGenerationState.Generating ->
+            Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
+                CircularProgressIndicator()
+                Text("正在生成总结…")
+            }
+        else -> Unit
+    }
+}
+
+@Composable
+private fun SummaryEditorOrReader(
+    state: SummaryUiState,
+    onAction: (SummaryAction) -> Unit,
+) {
+    if (state.isEditing) {
+        OutlinedTextField(
+            value = state.editingText,
+            onValueChange = { value -> onAction(SummaryAction.EditingTextChanged(value)) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("编辑总结") },
+            minLines = 12,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
+            Button(onClick = { onAction(SummaryAction.SaveEditing) }) { Text("保存") }
+            TextButton(onClick = { onAction(SummaryAction.CancelEditing) }) { Text("取消") }
+        }
+    } else {
+        state.displayContent?.let { content ->
+            WorkLogContentSurface {
+                SelectionContainer {
+                    Text(
+                        content,
+                        modifier = Modifier.padding(WorkLogSpacing.large),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
                 }
             }
-            SummaryActions(state, onAction)
         }
     }
 }

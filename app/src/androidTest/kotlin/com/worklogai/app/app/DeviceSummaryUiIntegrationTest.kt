@@ -7,8 +7,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -121,15 +123,18 @@ class DeviceSummaryUiIntegrationTest {
     ) {
         ActivityScenario.launch<MainActivity>(summaryIntent(context, type, period)).use {
             composeRule.waitForText(MANUAL_EDIT)
+            composeRule.onNodeWithContentDescription("更多总结操作").performClick()
             composeRule.onNodeWithText("恢复 AI 原始版本").performClick()
             composeRule.onNode(hasText("取消") and hasClickAction()).performClick()
             composeRule.onNodeWithText(MANUAL_EDIT).assertIsDisplayed()
 
+            composeRule.onNodeWithContentDescription("更多总结操作").performClick()
             composeRule.onNodeWithText("恢复 AI 原始版本").performClick()
             composeRule.onNode(hasText("恢复") and hasClickAction()).performClick()
             composeRule.waitForText(formatted)
             composeRule.onNodeWithText(formatted).assertIsDisplayed()
 
+            composeRule.onNodeWithContentDescription("更多总结操作").performScrollTo().performClick()
             composeRule.onNodeWithText("复制").performClick()
             composeRule.waitForText("已复制")
             val clipboard = context.getSystemService(ClipboardManager::class.java)
