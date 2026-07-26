@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -32,16 +31,10 @@ fun WorkLogSection(
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = MaterialTheme.shapes.large,
-        ) {
-            Column(
-                modifier = Modifier.padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
-                content = { content() },
-            )
-        }
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(contentPadding),
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
+            content = { content() },
+        )
     }
 }
