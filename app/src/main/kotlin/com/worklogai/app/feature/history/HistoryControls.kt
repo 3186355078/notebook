@@ -122,10 +122,7 @@ private fun HistoryDatePickerButton(
                 selectedDate.year,
                 selectedDate.monthValue - 1,
                 selectedDate.dayOfMonth,
-            ).apply {
-                datePicker.maxDate = System.currentTimeMillis()
-                show()
-            }
+            ).show()
         },
     ) {
         Icon(Icons.Outlined.CalendarMonth, contentDescription = "选择日期")

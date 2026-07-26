@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import com.worklogai.app.core.datastore.AiSettings
 import org.junit.Rule
 import org.junit.Test
@@ -28,8 +29,8 @@ class SettingsContentTest {
             }
         }
 
-        composeRule.onNodeWithText("大模型服务").assertIsDisplayed()
-        composeRule.onNodeWithText("保存设置").assertIsDisplayed()
-        composeRule.onNodeWithText("删除 API Key").assertIsDisplayed()
+        composeRule.onNodeWithText("AI 服务").assertIsDisplayed()
+        composeRule.onNodeWithText("保存设置").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("删除 API Key").performScrollTo().assertIsDisplayed()
     }
 }

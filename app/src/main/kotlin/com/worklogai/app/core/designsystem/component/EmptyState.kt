@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 
 @Composable
 fun EmptyState(
@@ -23,7 +23,7 @@ fun EmptyState(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 24.dp),
+                .padding(horizontal = WorkLogSpacing.huge, vertical = WorkLogSpacing.extraLarge),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -34,13 +34,13 @@ fun EmptyState(
         )
         Text(
             text = body,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = WorkLogSpacing.small),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
         action?.let { content ->
-            Column(modifier = Modifier.padding(top = 16.dp)) {
+            Column(modifier = Modifier.padding(top = WorkLogSpacing.large)) {
                 content()
             }
         }

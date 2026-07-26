@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.worklogai.app.core.designsystem.component.WorkLogSection
 import com.worklogai.app.core.model.SummaryType
 
 @Composable
@@ -94,7 +95,6 @@ internal fun DataManagementContent(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("数据管理", style = MaterialTheme.typography.headlineSmall)
             Text(
                 "导出和备份只会在您主动选择文件位置后执行。完整备份默认不加密，且不包含 API Key。",
                 style = MaterialTheme.typography.bodyMedium,
@@ -138,9 +138,10 @@ private fun MarkdownExportSection(
     state: DataManagementUiState,
     onAction: (DataManagementAction) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("导出 Markdown", style = MaterialTheme.typography.titleLarge)
-        Text("导出的文件用于阅读和分享，不包含内部 ID、图片路径或 API 配置。")
+    WorkLogSection(
+        title = "Markdown 导出",
+        description = "用于阅读和分享，不包含内部 ID、图片路径或 API 配置。",
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { onAction(DataManagementAction.ExportEntryMarkdown) },
@@ -166,9 +167,11 @@ private fun BackupSection(
     state: DataManagementUiState,
     onAction: (DataManagementAction) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("完整备份与恢复", style = MaterialTheme.typography.titleLarge)
-        Text("完整备份包含工作日志、总结、图片和非敏感设置；不会包含 API Key 或 Keystore 数据。")
+    WorkLogSection(
+        title = "完整备份与恢复",
+        description = "完整备份默认未加密；包含工作日志、待办、总结、图片和非敏感设置。",
+    ) {
+        Text("API Key 和 Keystore 数据不会进入备份。")
         Button(
             onClick = { onAction(DataManagementAction.CreateCompleteBackup) },
             enabled = !state.isBusy,
@@ -193,11 +196,12 @@ private fun RestoreConfirmationDialog(
         title = { Text("确认恢复备份？") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("恢复将完整替换当前工作日志、总结、图片和非敏感设置。当前数据会在恢复成功前保持不变。")
+                Text("恢复将完整替换当前工作日志、待办、总结、图片和非敏感设置。当前数据会在恢复成功前保持不变。")
                 Text(
                     text =
                         "${preview.entryCount} 条日志 · ${preview.blockCount} 个内容块 · " +
-                            "${preview.attachmentCount} 个附件 · ${preview.summaryCount} 份总结",
+                            "${preview.todoCount} 条待办 · ${preview.attachmentCount} 个附件 · " +
+                            "${preview.summaryCount} 份总结",
                 )
                 if (preview.warningCount > 0) Text("备份中有 ${preview.warningCount} 个缺失图片文件。")
                 Text("API Key 不会从备份恢复，也不会被删除。", style = MaterialTheme.typography.bodySmall)
