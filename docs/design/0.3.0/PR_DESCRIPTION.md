@@ -19,6 +19,7 @@
 - Settings：连续分组设置行，不再每项独立大卡片。
 - Data Management：统一导出/备份/恢复 Action Row 和结构化 Preview。
 - Empty/Loading/Error：使用统一状态组件。
+- 视觉验收微调：移除数据管理页重复标题、保证 1.5× 字体摘要完整换行，并将横屏 Today 内容限制为居中的 640dp 阅读宽度。
 
 ## 无障碍与响应式
 
@@ -34,9 +35,10 @@
 - Android Test 源码：编译通过。
 - Debug 全量任务：assemble、lint、Detekt、ktlint 全部通过。
 - 全量任务使用 `--rerun-tasks --no-build-cache`。
-- Connected Android Test：54/54，failures/errors/skipped = 0。
+- Connected Android Test：58/58，failures/errors/skipped = 0。
 - HONOR Android 16 / API 36 应用日志：FATAL/ANR/OOM = 0。
-- 真机人工抽查 Today、History、Summary、Settings；截图仅保存在 Git 忽略的构建目录。
+- 真机人工抽查 Today、History、Summary、Settings 和 Data Management；用户已确认视觉通过。
+- 37 张规范文件名的脱敏截图和本地 HTML 索引仅保存在 Git 忽略的构建目录。
 
 ## 数据与协议
 
@@ -56,3 +58,4 @@
 
 - `docs/design/0.3.0/UI_AUDIT.md`
 - `docs/design/0.3.0/UI_REDESIGN_REPORT.md`
+- `docs/design/0.3.0/VISUAL_ACCEPTANCE.md`
