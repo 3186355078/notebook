@@ -1,5 +1,30 @@
 # 变更日志
 
+## 0.3.0 - 内部试用版（2026-07-30）
+
+### UI/UX
+
+- 重建设计系统，统一低饱和青蓝品牌色、中性 Surface、Typography、间距、圆角、图标和轻量动效。
+- Today 页面改为紧凑日期概览、重点待办、全部待办、快速记录和工作内容流，减少卡片嵌套。
+- Todo 使用局部优先级强调、明确的四态图标、轻量拖动反馈和 TalkBack 排序替代操作。
+- Work Editor 改善 TEXT、IMAGE、TABLE 的内容层级、保存状态和深色模式边界。
+- History 使用日期时间线与紧凑摘要；Summary 以阅读为主并把次要操作收进 Overflow。
+- Settings 和 Data Management 采用统一分组与操作行，保留备份未加密和 API Key 不进入备份的安全说明。
+- 普通竖屏使用统一底部导航，宽屏横屏使用 NavigationRail。
+- 统一 Empty、Loading、Error、Status 与操作组件，并优化 Dynamic Color、1.3×/1.5× 字体和无障碍语义。
+
+### 数据与协议
+
+- 本版本没有修改 Room Schema、Migration 或 Backup 协议。
+- Room database version 继续为 2，backupFormatVersion 继续为 2，v1/v2 备份兼容能力保持不变。
+
+### 已知限制
+
+- Android 10～13 第二设备/模拟器专项兼容测试按用户要求未执行。
+- Dynamic Color 的最终色调受设备壁纸和系统实现影响。
+- 其他 OEM 的 SAF Provider 与长期后台行为仍需观察。
+- 不提供待办提醒、循环待办或子任务；完整备份默认未加密。
+
 ## 0.2.0 - 内部试用版（2026-07-26）
 
 ### 新增

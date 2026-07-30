@@ -78,16 +78,16 @@ try {
             $errors += [int]$suiteXml.testsuite.errors
             $skipped += [int]$suiteXml.testsuite.skipped
         }
-        if ($tests -ne 246 -or $failures -ne 0 -or $errors -ne 0 -or $skipped -ne 0) {
-            throw "Clean-clone JVM test totals do not match the accepted 246/246 baseline."
+        if ($tests -ne 249 -or $failures -ne 0 -or $errors -ne 0 -or $skipped -ne 0) {
+            throw "Clean-clone JVM test totals do not match the accepted 249/249 baseline."
         }
 
         & .\tools\package-release.ps1 `
-            -Version "0.2.0" `
-            -VersionCode 2 `
+            -Version "0.3.0" `
+            -VersionCode 3 `
             -CertificateSha256 $CertificateSha256 `
             -SdkRoot $SdkRoot `
-            -InstrumentationTests 51 `
+            -InstrumentationTests 58 `
             -RoomVersion 2 `
             -BackupFormatVersion 2 `
             -SchemaSha256 "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D"

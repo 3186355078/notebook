@@ -1,9 +1,9 @@
 param(
-    [string]$Version = "0.2.0",
-    [int]$VersionCode = 2,
+    [string]$Version = "0.3.0",
+    [int]$VersionCode = 3,
     [string]$CertificateSha256 = "15668D9F84061C17CF099A99FF84E1610113204F86311C1044454A30CFC3E801",
     [string]$SdkRoot = "D:\SDK",
-    [int]$InstrumentationTests = 51,
+    [int]$InstrumentationTests = 58,
     [int]$RoomVersion = 2,
     [int]$BackupFormatVersion = 2,
     [string]$SchemaSha256 = "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D"

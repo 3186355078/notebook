@@ -2,7 +2,7 @@
 
 WorkLog AI 使用以下主要开源项目。版本来自当前 `gradle/libs.versions.toml` 和已解析的 Compose BOM；完整许可证以各项目官方发行包为准。
 
-0.2.0 的 Todo、Migration、Backup v2 和设计系统均使用现有 AndroidX/Kotlin 技术栈，未新增第三方运行时依赖。
+0.2.0 的 Todo、Migration 和 Backup v2，以及 0.3.0 的 UI/UX 重构，均使用现有 AndroidX/Kotlin 技术栈；0.3.0 未新增第三方运行时依赖。
 
 | 项目 | 当前版本 | 许可证 | 用途 |
 | --- | --- | --- | --- |
