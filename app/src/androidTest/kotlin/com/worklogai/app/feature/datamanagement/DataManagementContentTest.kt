@@ -1,9 +1,11 @@
 package com.worklogai.app.feature.datamanagement
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -30,6 +32,7 @@ class DataManagementContentTest {
 
         composeRule.onNodeWithText("创建完整备份").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("从备份恢复").performScrollTo().assertIsDisplayed()
+        composeRule.onAllNodesWithText("数据管理").assertCountEquals(0)
         composeRule
             .onNodeWithText(
                 "只有主动选择文件位置后才会执行；API Key 不包含在备份中。",

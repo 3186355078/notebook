@@ -36,7 +36,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.WorkLogActionRow
 import com.worklogai.app.core.designsystem.component.WorkLogActionRowContent
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
-import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogSection
 import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
@@ -105,11 +104,6 @@ internal fun DataManagementContent(
                     .padding(WorkLogSpacing.largePlus),
             verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraLarge),
         ) {
-            WorkLogPageHeader(
-                eyebrow = "本地数据",
-                title = "数据管理",
-                subtitle = "导出工作内容，或创建和恢复完整备份",
-            )
             WorkLogContentSurface(emphasized = true) {
                 Column(
                     modifier = Modifier.padding(WorkLogSpacing.medium),

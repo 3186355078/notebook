@@ -5,12 +5,15 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -31,7 +34,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,6 +70,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private const val MIN_DATE_REFRESH_DELAY_MS = 1_000L
+private val TODAY_WIDE_CONTENT_MAX_WIDTH = 640.dp
 
 @Composable
 fun TodayScreen(
@@ -159,20 +165,33 @@ internal fun TodayScreenContent(
         if (focusedIndex >= 0) listState.animateScrollToItem(focusedIndex + 2)
     }
 
-    Scaffold(
+    BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { paddingValues ->
-        TodayScreenBody(
-            state = state,
-            listState = listState,
-            dateFormatter = dateFormatter,
-            paddingValues = paddingValues,
-            onAction = onAction,
-            todoState = todoState,
-            onTodoAction = onTodoAction,
-            onPickImage = onPickImage,
-        )
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        val contentModifier =
+            if (maxWidth > TODAY_WIDE_CONTENT_MAX_WIDTH) {
+                Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = TODAY_WIDE_CONTENT_MAX_WIDTH)
+            } else {
+                Modifier.fillMaxSize()
+            }
+        Scaffold(
+            modifier = contentModifier.testTag("today_content_container"),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+        ) { paddingValues ->
+            TodayScreenBody(
+                state = state,
+                listState = listState,
+                dateFormatter = dateFormatter,
+                paddingValues = paddingValues,
+                onAction = onAction,
+                todoState = todoState,
+                onTodoAction = onTodoAction,
+                onPickImage = onPickImage,
+            )
+        }
     }
 
     state.pendingDeleteBlockId?.let { blockId ->

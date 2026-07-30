@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 
@@ -178,8 +177,6 @@ fun WorkLogActionRow(
             Text(
                 content.summary,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
