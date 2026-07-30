@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -41,8 +42,12 @@ internal fun HistorySearchBar(
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChanged,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = WorkLogSpacing.largePlus, vertical = WorkLogSpacing.small),
         singleLine = true,
+        shape = MaterialTheme.shapes.medium,
         label = { Text("搜索工作记录") },
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = "搜索历史记录") },
         trailingIcon = {

@@ -64,8 +64,8 @@ class TodayTodoSectionTest {
         )
 
         composeRule.onNodeWithText("已完成 1/3 · 进行中 1").assertIsDisplayed()
-        composeRule.onNodeWithText("● 紧急").assertIsDisplayed()
-        composeRule.onNodeWithText("● 高").assertIsDisplayed()
+        composeRule.onNodeWithText("紧急优先级").assertIsDisplayed()
+        composeRule.onNodeWithText("高优先级").assertIsDisplayed()
         composeRule.onNodeWithText("进行中").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("今日待办完成进度").assertIsDisplayed()
     }

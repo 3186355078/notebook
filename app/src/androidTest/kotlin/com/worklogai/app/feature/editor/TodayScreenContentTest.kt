@@ -1,9 +1,13 @@
 package com.worklogai.app.feature.editor
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -12,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import com.worklogai.app.core.designsystem.theme.WorkLogTheme
 import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableContent
@@ -156,6 +161,27 @@ class TodayScreenContentTest {
         composeRule.runOnIdle {
             assertTrue(actions.last() is TodayAction.TableCellChanged)
         }
+    }
+
+    @Test
+    fun wideLayoutConstrainsTodayToAReadableContentWidth() {
+        composeRule.setContent {
+            WorkLogTheme {
+                Box(modifier = Modifier.requiredSize(width = 900.dp, height = 700.dp)) {
+                    TodayScreenContent(
+                        state = stateWith(),
+                        snackbarHostState = remember { SnackbarHostState() },
+                        onAction = {},
+                    )
+                }
+            }
+        }
+
+        val contentBounds =
+            composeRule
+                .onNodeWithTag("today_content_container")
+                .getUnclippedBoundsInRoot()
+        assertTrue(contentBounds.right - contentBounds.left <= 640.dp)
     }
 
     private fun stateWith(vararg blocks: EditorBlockUiModel): TodayUiState =

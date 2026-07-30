@@ -10,7 +10,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -30,8 +29,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.worklogai.app.R
+import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.designsystem.theme.WorkLogTheme
 import com.worklogai.app.feature.editor.TextBlockUiModel
 
@@ -53,8 +53,8 @@ fun TextBlockEditor(
         }
     }
 
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    WorkLogContentSurface(modifier = modifier) {
+        Column(modifier = Modifier.padding(WorkLogSpacing.medium)) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 androidx.compose.foundation.layout
                     .Spacer(modifier = Modifier.weight(1f))
@@ -70,6 +70,7 @@ fun TextBlockEditor(
                 onValueChange = callbacks.onTextChanged,
                 minLines = 4,
                 maxLines = Int.MAX_VALUE,
+                shape = MaterialTheme.shapes.medium,
                 modifier =
                     Modifier
                         .fillMaxWidth()

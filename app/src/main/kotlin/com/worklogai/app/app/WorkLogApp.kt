@@ -1,5 +1,7 @@
 package com.worklogai.app.app
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -9,13 +11,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -70,35 +77,58 @@ fun WorkLogApp(
         }
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            WorkLogTopAppBar(
-                state =
-                    WorkLogTopAppBarState(
-                        isSettings = isSettings,
-                        isDataManagement = isDataManagement,
-                        isEntryEditor = isEntryEditor,
-                        isSummaryPeriod = isSummaryPeriod,
-                        topLevelDestination = topLevelDestination,
-                    ),
-                onNavigateUp = navController::navigateUp,
-            )
-        },
-        bottomBar = {
-            WorkLogBottomBar(
-                visible = topLevelDestination != null,
-                currentDestination = currentDestination,
-                onDestinationSelected = { destination ->
-                    navController.navigateToTopLevelDestination(destination)
-                },
-            )
-        },
-    ) { innerPadding ->
-        WorkLogNavHost(
-            navController = navController,
-            modifier = Modifier.padding(innerPadding),
-        )
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val useWideNavigation = usesWideNavigation(maxWidth.value)
+        val navigationVisible = topLevelDestination != null
+        val onDestinationSelected: (TopLevelDestination) -> Unit = { destination ->
+            navController.navigateToTopLevelDestination(destination)
+        }
+
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
+            topBar = {
+                WorkLogTopAppBar(
+                    state =
+                        WorkLogTopAppBarState(
+                            isSettings = isSettings,
+                            isDataManagement = isDataManagement,
+                            isEntryEditor = isEntryEditor,
+                            isSummaryPeriod = isSummaryPeriod,
+                            topLevelDestination = topLevelDestination,
+                        ),
+                    onNavigateUp = navController::navigateUp,
+                )
+            },
+            bottomBar = {
+                if (!useWideNavigation) {
+                    WorkLogBottomBar(
+                        visible = navigationVisible,
+                        currentDestination = currentDestination,
+                        onDestinationSelected = onDestinationSelected,
+                    )
+                }
+            },
+        ) { innerPadding ->
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+            ) {
+                if (useWideNavigation) {
+                    WorkLogNavigationRail(
+                        visible = navigationVisible,
+                        currentDestination = currentDestination,
+                        onDestinationSelected = onDestinationSelected,
+                    )
+                }
+                WorkLogNavHost(
+                    navController = navController,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 
@@ -108,8 +138,15 @@ private fun WorkLogTopAppBar(
     state: WorkLogTopAppBarState,
     onNavigateUp: () -> Unit,
 ) {
+    if (!shouldShowTopAppBar(state.topLevelDestination != null)) return
+
     val isEntryEditor = state.isEntryEditor
     TopAppBar(
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
+            ),
         title = {
             Text(
                 text =
@@ -143,6 +180,8 @@ private fun WorkLogTopAppBar(
     )
 }
 
+internal fun shouldShowTopAppBar(isTopLevelDestination: Boolean): Boolean = !isTopLevelDestination
+
 private data class WorkLogTopAppBarState(
     val isSettings: Boolean,
     val isDataManagement: Boolean,
@@ -152,20 +191,56 @@ private data class WorkLogTopAppBarState(
 )
 
 @Composable
-private fun WorkLogBottomBar(
+internal fun WorkLogBottomBar(
     visible: Boolean,
     currentDestination: NavDestination?,
     onDestinationSelected: (TopLevelDestination) -> Unit,
 ) {
     if (!visible) return
 
-    NavigationBar {
+    NavigationBar(
+        modifier = Modifier.testTag("bottom_navigation"),
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = androidx.compose.material3.NavigationBarDefaults.Elevation,
+    ) {
         TopLevelDestination.entries.forEach { destination ->
             val selected =
                 currentDestination
                     ?.hierarchy
                     ?.any { it.route == destination.route } == true
             NavigationBarItem(
+                selected = selected,
+                onClick = { onDestinationSelected(destination) },
+                icon = {
+                    Icon(
+                        imageVector = destination.icon,
+                        contentDescription = null,
+                    )
+                },
+                label = { Text(stringResource(destination.labelResourceId)) },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun WorkLogNavigationRail(
+    visible: Boolean,
+    currentDestination: NavDestination?,
+    onDestinationSelected: (TopLevelDestination) -> Unit,
+) {
+    if (!visible) return
+
+    NavigationRail(
+        modifier = Modifier.testTag("navigation_rail"),
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        TopLevelDestination.entries.forEach { destination ->
+            val selected =
+                currentDestination
+                    ?.hierarchy
+                    ?.any { it.route == destination.route } == true
+            NavigationRailItem(
                 selected = selected,
                 onClick = { onDestinationSelected(destination) },
                 icon = {
@@ -188,7 +263,7 @@ private fun WorkLogNavHost(
     NavHost(
         navController = navController,
         startDestination = TopLevelDestination.TODAY.route,
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
     ) {
         composable(TopLevelDestination.TODAY.route) {
             TodayScreen(

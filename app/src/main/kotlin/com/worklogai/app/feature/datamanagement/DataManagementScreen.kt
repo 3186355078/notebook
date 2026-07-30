@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,7 +33,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.worklogai.app.core.designsystem.component.WorkLogActionRow
+import com.worklogai.app.core.designsystem.component.WorkLogActionRowContent
+import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
 import com.worklogai.app.core.designsystem.component.WorkLogSection
+import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.model.SummaryType
 
 @Composable
@@ -92,13 +101,22 @@ internal fun DataManagementContent(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(paddingValues)
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(WorkLogSpacing.largePlus),
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraLarge),
         ) {
-            Text(
-                "导出和备份只会在您主动选择文件位置后执行。完整备份默认不加密，且不包含 API Key。",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            WorkLogContentSurface(emphasized = true) {
+                Column(
+                    modifier = Modifier.padding(WorkLogSpacing.medium),
+                    verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
+                ) {
+                    Text("完整备份默认未加密", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "只有主动选择文件位置后才会执行；API Key 不包含在备份中。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
             OutlinedTextField(
                 value = state.exportDate,
                 onValueChange = { onAction(DataManagementAction.ExportDateChanged(it)) },
@@ -107,6 +125,7 @@ internal fun DataManagementContent(
                 label = { Text("导出日期") },
                 supportingText = { Text("格式：yyyy-MM-dd") },
                 singleLine = true,
+                shape = MaterialTheme.shapes.medium,
             )
             MarkdownExportSection(state, onAction)
             BackupSection(state, onAction)
@@ -142,23 +161,51 @@ private fun MarkdownExportSection(
         title = "Markdown 导出",
         description = "用于阅读和分享，不包含内部 ID、图片路径或 API 配置。",
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { onAction(DataManagementAction.ExportEntryMarkdown) },
-                enabled = !state.isBusy,
-                modifier = Modifier.semantics { contentDescription = "导出工作日志 Markdown" },
-            ) { Text("导出日志") }
-            Button(
-                onClick = { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.WEEKLY)) },
-                enabled = !state.isBusy,
-                modifier = Modifier.semantics { contentDescription = "导出周报 Markdown" },
-            ) { Text("导出周报") }
-            Button(
-                onClick = { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.MONTHLY)) },
-                enabled = !state.isBusy,
-                modifier = Modifier.semantics { contentDescription = "导出月报 Markdown" },
-            ) { Text("导出月报") }
-        }
+        WorkLogActionRow(
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Description,
+                    title = "导出当日日志",
+                    summary = "生成包含工作记录和可选待办的 Markdown",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ExportEntryMarkdown) }
+                },
+            modifier = Modifier.semantics { contentDescription = "导出工作日志 Markdown" },
+        )
+        WorkLogActionRow(
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Description,
+                    title = "导出周报",
+                    summary = "将当前周报保存为便于阅读和分享的 Markdown",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.WEEKLY)) }
+                },
+            modifier = Modifier.semantics { contentDescription = "导出周报 Markdown" },
+        )
+        WorkLogActionRow(
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Description,
+                    title = "导出月报",
+                    summary = "将当前月报保存为便于阅读和分享的 Markdown",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ExportSummaryMarkdown(SummaryType.MONTHLY)) }
+                },
+            modifier = Modifier.semantics { contentDescription = "导出月报 Markdown" },
+        )
     }
 }
 
@@ -171,17 +218,41 @@ private fun BackupSection(
         title = "完整备份与恢复",
         description = "完整备份默认未加密；包含工作日志、待办、总结、图片和非敏感设置。",
     ) {
-        Text("API Key 和 Keystore 数据不会进入备份。")
-        Button(
-            onClick = { onAction(DataManagementAction.CreateCompleteBackup) },
-            enabled = !state.isBusy,
+        WorkLogActionRow(
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Archive,
+                    title = "创建完整备份",
+                    summary = "包含工作日志、待办、总结、图片和非敏感设置",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.CreateCompleteBackup) }
+                },
             modifier = Modifier.semantics { contentDescription = "创建完整备份" },
-        ) { Text("创建完整备份") }
-        TextButton(
-            onClick = { onAction(DataManagementAction.ChooseBackupToRestore) },
-            enabled = !state.isBusy,
+        )
+        WorkLogActionRow(
+            content =
+                WorkLogActionRowContent(
+                    icon = Icons.Outlined.Restore,
+                    title = "从备份恢复",
+                    summary = "预检通过并确认后，完整替换当前本地数据",
+                ),
+            onClick =
+                if (state.isBusy) {
+                    null
+                } else {
+                    { onAction(DataManagementAction.ChooseBackupToRestore) }
+                },
             modifier = Modifier.semantics { contentDescription = "从备份恢复" },
-        ) { Text("从备份恢复") }
+        )
+        Text(
+            "API Key 和 Keystore 数据不会进入备份。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -203,6 +274,11 @@ private fun RestoreConfirmationDialog(
                             "${preview.todoCount} 条待办 · ${preview.attachmentCount} 个附件 · " +
                             "${preview.summaryCount} 份总结",
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
+                    WorkLogStatusChip(label = "${preview.todoCount} 条待办")
+                    WorkLogStatusChip(label = "${preview.attachmentCount} 个附件")
+                    WorkLogStatusChip(label = "${preview.summaryCount} 份总结")
+                }
                 if (preview.warningCount > 0) Text("备份中有 ${preview.warningCount} 个缺失图片文件。")
                 Text("API Key 不会从备份恢复，也不会被删除。", style = MaterialTheme.typography.bodySmall)
             }

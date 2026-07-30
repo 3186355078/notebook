@@ -5,15 +5,17 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -22,8 +24,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,10 +45,12 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.R
 import com.worklogai.app.core.designsystem.component.EmptyState
+import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
+import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.feature.editor.component.BlockControls
 import com.worklogai.app.feature.editor.component.DeleteBlockDialog
 import com.worklogai.app.feature.editor.component.ImageBlockEditor
-import com.worklogai.app.feature.editor.component.SaveStatusIndicator
 import com.worklogai.app.feature.editor.component.TableBlockCallbacks
 import com.worklogai.app.feature.editor.component.TableBlockEditor
 import com.worklogai.app.feature.editor.component.TextBlockCallbacks
@@ -67,6 +70,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private const val MIN_DATE_REFRESH_DELAY_MS = 1_000L
+private val TODAY_WIDE_CONTENT_MAX_WIDTH = 640.dp
 
 @Composable
 fun TodayScreen(
@@ -161,20 +165,33 @@ internal fun TodayScreenContent(
         if (focusedIndex >= 0) listState.animateScrollToItem(focusedIndex + 2)
     }
 
-    Scaffold(
+    BoxWithConstraints(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { paddingValues ->
-        TodayScreenBody(
-            state = state,
-            listState = listState,
-            dateFormatter = dateFormatter,
-            paddingValues = paddingValues,
-            onAction = onAction,
-            todoState = todoState,
-            onTodoAction = onTodoAction,
-            onPickImage = onPickImage,
-        )
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        val contentModifier =
+            if (maxWidth > TODAY_WIDE_CONTENT_MAX_WIDTH) {
+                Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = TODAY_WIDE_CONTENT_MAX_WIDTH)
+            } else {
+                Modifier.fillMaxSize()
+            }
+        Scaffold(
+            modifier = contentModifier.testTag("today_content_container"),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+        ) { paddingValues ->
+            TodayScreenBody(
+                state = state,
+                listState = listState,
+                dateFormatter = dateFormatter,
+                paddingValues = paddingValues,
+                onAction = onAction,
+                todoState = todoState,
+                onTodoAction = onTodoAction,
+                onPickImage = onPickImage,
+            )
+        }
     }
 
     state.pendingDeleteBlockId?.let { blockId ->
@@ -238,23 +255,20 @@ private fun FuturePlanningContent(
     LazyColumn(
         contentPadding =
             PaddingValues(
-                start = 20.dp,
-                top = 16.dp,
-                end = 20.dp,
-                bottom = 24.dp + paddingValues.calculateBottomPadding(),
+                start = WorkLogSpacing.largePlus,
+                top = WorkLogSpacing.large,
+                end = WorkLogSpacing.largePlus,
+                bottom = WorkLogSpacing.extraLarge + paddingValues.calculateBottomPadding(),
             ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.large),
         modifier = Modifier.fillMaxSize(),
     ) {
         item(key = "future_header") {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(state.date.format(dateFormatter), style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "未来日期仅用于规划待办，不能提前创建工作记录。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+            WorkLogPageHeader(
+                eyebrow = "未来计划",
+                title = state.date.format(dateFormatter),
+                subtitle = "未来日期仅用于规划待办，不能提前创建工作记录。",
+            )
         }
         item(key = "future_todos") {
             TodayTodoSection(todoState, onTodoAction)
@@ -278,23 +292,31 @@ private fun TodayEntryList(
         state = listState,
         contentPadding =
             PaddingValues(
-                start = 20.dp,
-                top = 16.dp,
-                end = 20.dp,
-                bottom = 24.dp + paddingValues.calculateBottomPadding(),
+                start = WorkLogSpacing.largePlus,
+                top = WorkLogSpacing.large,
+                end = WorkLogSpacing.largePlus,
+                bottom = WorkLogSpacing.extraLarge + paddingValues.calculateBottomPadding(),
             ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.large),
         modifier = Modifier.fillMaxSize(),
     ) {
         item(key = "today_header") {
             TodayHeader(
-                title =
-                    if (state.followsCurrentDate) {
-                        null
-                    } else {
-                        state.date.format(dateFormatter)
-                    },
-                dateText = state.date.format(dateFormatter),
+                presentation =
+                    TodayHeaderPresentation(
+                        date = state.date,
+                        title =
+                            if (state.followsCurrentDate) {
+                                null
+                            } else {
+                                state.date.format(dateFormatter)
+                            },
+                        dateText = state.date.format(dateFormatter),
+                        todoCount = todoState.todos.size,
+                        doneCount = todoState.doneCount,
+                        inProgressCount = todoState.inProgressCount,
+                        blockCount = state.blocks.size,
+                    ),
                 saveState = state.saveState,
                 onRetrySave = { onAction(TodayAction.RetryFailedSaves) },
             )
@@ -313,38 +335,46 @@ private fun TodayEntryList(
                 onAddTable = { onAction(TodayAction.AddTableBlock) },
             )
         }
-        if (state.blocks.isEmpty()) {
-            item(key = "today_empty") {
-                EmptyState(
-                    title = stringResource(R.string.today_empty_title),
-                    body = stringResource(R.string.today_empty_body),
-                    action = {
-                        Button(onClick = { onAction(TodayAction.AddTextBlock) }) {
-                            Text(stringResource(R.string.today_add_text))
-                        }
-                    },
-                    modifier = Modifier.fillParentMaxSize(),
-                )
-            }
-        } else {
-            itemsIndexed(
-                items = state.blocks,
-                key = { _, block -> block.id },
-            ) { index, block ->
-                EditorBlockItem(
-                    presentation =
-                        EditorBlockPresentation(
-                            block = block,
-                            canMoveUp = index > 0 && !state.isStructureOperationInProgress,
-                            canMoveDown = index < state.blocks.lastIndex && !state.isStructureOperationInProgress,
-                            requestsFocus = block.id == state.focusedBlockId,
-                        ),
-                    onAction = onAction,
-                    onConvertTextBlock = { blockId ->
-                        onTodoAction(TodayTodoAction.RequestTextConversion(blockId))
-                    },
-                )
-            }
+        editorBlocks(state, onAction, onTodoAction)
+    }
+}
+
+private fun LazyListScope.editorBlocks(
+    state: TodayUiState,
+    onAction: (TodayAction) -> Unit,
+    onTodoAction: (TodayTodoAction) -> Unit,
+) {
+    if (state.blocks.isEmpty()) {
+        item(key = "today_empty") {
+            EmptyState(
+                title = stringResource(R.string.today_empty_title),
+                body = stringResource(R.string.today_empty_body),
+                action = {
+                    Button(onClick = { onAction(TodayAction.AddTextBlock) }) {
+                        Text(stringResource(R.string.today_add_text))
+                    }
+                },
+                modifier = Modifier.fillParentMaxSize(),
+            )
+        }
+    } else {
+        itemsIndexed(
+            items = state.blocks,
+            key = { _, block -> block.id },
+        ) { index, block ->
+            EditorBlockItem(
+                presentation =
+                    EditorBlockPresentation(
+                        block = block,
+                        canMoveUp = index > 0 && !state.isStructureOperationInProgress,
+                        canMoveDown = index < state.blocks.lastIndex && !state.isStructureOperationInProgress,
+                        requestsFocus = block.id == state.focusedBlockId,
+                    ),
+                onAction = onAction,
+                onConvertTextBlock = { blockId ->
+                    onTodoAction(TodayTodoAction.RequestTextConversion(blockId))
+                },
+            )
         }
     }
 }
@@ -356,11 +386,14 @@ private fun QuickRecordToolbar(
     onAddImage: () -> Unit,
     onAddTable: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("快速记录", style = MaterialTheme.typography.titleMedium)
+    Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
+        WorkLogSectionHeader(
+            title = "快速记录",
+            description = "从文字、图片或表格开始记录今天的工作",
+        )
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
         ) {
             OutlinedButton(onClick = onAddText) {
                 androidx.compose.material3.Icon(Icons.Outlined.Add, contentDescription = "添加文字")
@@ -375,6 +408,10 @@ private fun QuickRecordToolbar(
                 Text("表格", modifier = Modifier.padding(start = 6.dp))
             }
         }
+        WorkLogSectionHeader(
+            title = "今日工作记录",
+            description = "内容会自动保存在当前日期",
+        )
     }
 }
 
@@ -453,49 +490,3 @@ private data class EditorBlockPresentation(
     val canMoveDown: Boolean,
     val requestsFocus: Boolean,
 )
-
-@Composable
-private fun TodayHeader(
-    title: String?,
-    dateText: String,
-    saveState: SaveState,
-    onRetrySave: () -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        title?.let { Text(text = it, style = MaterialTheme.typography.headlineSmall) }
-        Text(
-            text = dateText,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        SaveStatusIndicator(saveState = saveState, onRetry = onRetrySave)
-    }
-}
-
-@Composable
-private fun LoadingContent(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            CircularProgressIndicator(modifier = Modifier.size(28.dp))
-            Text(stringResource(R.string.today_loading), style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Composable
-private fun LoadErrorContent(
-    state: TodayUiState,
-    onAction: (TodayAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    EmptyState(
-        title = state.errorMessage ?: "工作记录加载失败",
-        body = stringResource(R.string.today_empty_body),
-        action = {
-            Button(onClick = { onAction(TodayAction.RetryLoad) }) {
-                Text(stringResource(R.string.today_retry))
-            }
-        },
-        modifier = modifier.fillMaxSize(),
-    )
-}
