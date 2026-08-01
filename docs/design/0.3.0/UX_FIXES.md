@@ -1,4 +1,4 @@
-# WorkLog AI 0.3.1-dev UX 修复记录
+# WorkLog AI 0.3.1 UX 修复记录
 
 ## 连续点击“已同步记录”产生重复页面
 

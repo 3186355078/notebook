@@ -2,7 +2,7 @@
 
 WorkLog AI 是一款面向个人使用的 Android 工作日志应用。它以本地记录为核心，计划支持文字、图片和简单表格，并在用户明确允许时调用大模型生成周报和月报。
 
-当前仓库正在开发 0.3.1-dev（versionCode 4），重点精修 Compose 交互与视觉层级，并修复 linked work record 的重复导航；Room version 2、Migration 1→2、备份格式 v2 和待办业务语义保持不变。阶段状态与实际验证结果见 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)。
+当前内部热修复版为 0.3.1（versionCode 4），重点精修 Compose 交互与视觉层级，并修复 linked work record 的重复导航；Room version 2、Migration 1→2、备份格式 v2 和待办业务语义保持不变。阶段状态与实际验证结果见 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)。
 
 ## 当前可用界面
 
@@ -19,7 +19,7 @@ WorkLog AI 是一款面向个人使用的 Android 工作日志应用。它以本
 - 底部导航统一为“今天 / 历史 / 总结 / 设置”；数据管理保留为设置的子页面。
 - 界面跟随系统浅色/深色模式，支持系统字体缩放和边到边显示。
 
-当前 ADB 环境已恢复。Android 16 / API 36 的 HONOR PPG-AN00 真机已实际执行 58/58 个 Instrumentation 方法，failures、errors、skipped 均为 0；设备序列号不进入文档。Android 10～13 第二台真机或模拟器专项兼容测试按用户明确要求跳过，该项未执行、不宣称通过。
+当前 ADB 环境已恢复。Android 16 / API 36 的 HONOR PPG-AN00 真机已实际执行 60/60 个 Instrumentation 方法，failures、errors、skipped 均为 0；其中 Todo “查看记录”连续激活 10 次只产生一次导航。设备序列号不进入文档。Android 10～13 第二台真机或模拟器专项兼容测试按用户明确要求跳过，该项未执行、不宣称通过。
 
 阶段 4 当时已通过工程验证与测试矩阵验收：70 个 JVM/Robolectric 测试、APK、Android Test 编译、Lint、Detekt 与 ktlint 均成功。FileStore 覆盖 JPEG/PNG、EXIF、缩放、原子写入失败、路径边界和孤儿清理；图片说明和表格 Draft 覆盖防抖、失败保留、重试、flush、排序与删除。其后阶段 9 已补充上述 Android 16 真机矩阵。
 
@@ -212,7 +212,7 @@ git grep -n -I -E "(sk-[A-Za-z0-9_-]{16,}|api[_-]?key[[:space:]]*[=:][[:space:]]
 
 待办默认只保存在本地，不会直接发送给 AI、写入 WorkManager Data 或生产日志。只有用户主动选择“完成并记录”后生成的工作记录块，才会按现有 `allowAiProcessing` 规则参与周报/月报。完整备份仍默认未加密，应只保存到可信位置。
 
-备份格式当前为 `worklog-ai-backup` v2。恢复会完整替换工作日志、内容块、附件元数据、总结、待办、图片和非敏感设置；选择文件后先完成格式、白名单路径、重复 Entry、ZIP 资源限制、SHA/size、图片头和 DTO 关系预检，普通损坏备份不会修改当前数据。0.3.0 仍可恢复 0.1.0 的 v1 备份，缺少的待办按空列表处理。附件切换、Room 与设置恢复失败会补偿回滚；极端补偿失败由非敏感 restore journal 标记，并在下次启动保守修复。Scheduler 协调失败只产生 warning，不回滚已恢复的用户数据。
+备份格式当前为 `worklog-ai-backup` v2。恢复会完整替换工作日志、内容块、附件元数据、总结、待办、图片和非敏感设置；选择文件后先完成格式、白名单路径、重复 Entry、ZIP 资源限制、SHA/size、图片头和 DTO 关系预检，普通损坏备份不会修改当前数据。0.3.1 仍可恢复 0.1.0 的 v1 备份，缺少的待办按空列表处理。附件切换、Room 与设置恢复失败会补偿回滚；极端补偿失败由非敏感 restore journal 标记，并在下次启动保守修复。Scheduler 协调失败只产生 warning，不回滚已恢复的用户数据。
 
 ## 阶段 10：每日待办与界面升级
 
@@ -222,7 +222,7 @@ git grep -n -I -E "(sk-[A-Za-z0-9_-]{16,}|api[_-]?key[[:space:]]*[=:][[:space:]]
 
 界面使用统一 Material 3 颜色、Typography、间距、圆角和轻量动效，支持 Dynamic Color、深色模式、大字体和 TalkBack 排序替代操作。Today 页采用紧凑待办区和列表内快速记录工具栏，避免遮挡表格与工作记录内容；底部导航保持“今天 / 历史 / 总结 / 设置”四个入口。
 
-阶段 13/14 的视觉回归执行 249/249 个 JVM/Robolectric 测试及 Android 16 HONOR 真机 58/58 个 Instrumentation 方法。Room version 为 2，备份格式为 2；Schema 1、2 与 v1/v2 备份兼容能力保持不变。
+阶段 14B 的封版回归基线为 254/254 个 JVM/Robolectric 测试及 Android 16 HONOR 真机 60/60 个 Instrumentation 方法。Room version 为 2，备份格式为 2；Schema 1、2 与 v1/v2 备份兼容能力保持不变。
 
 备份默认**未加密**，请只保存到可信位置。当前安全上限集中在 `BackupSafetyLimits`，包含归档大小、Entry 数、单文件/总解压大小、压缩比、JSON/附件大小、路径长度和记录数；它们用于拒绝 Zip Slip、重复 Entry 和 ZIP Bomb。大型真实备份及不同 OEM SAF Provider 的行为仍需要真机验收。
 

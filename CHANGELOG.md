@@ -1,5 +1,26 @@
 # 变更日志
 
+## 0.3.1 - 内部热修复版（2026-08-02）
+
+### 修复
+
+- 修复连续点击 Todo“查看记录”会重复打开相同工作记录页、导致返回栈重复的问题。
+- 对相同日期、相同 linked ContentBlock 和相同 Destination 实施路由幂等与 `launchSingleTop`。
+- 导航事件改为无 replay 的一次性事件，避免页面重组、旋转或进程重建时重复消费。
+- Todo 编辑、完成、迁移与删除浮层改为互斥展示，防止 Sheet/Dialog 重复叠加。
+
+### 改进
+
+- 精简 Today 日期和今日概览，降低 Todo 列表视觉噪声与无意义留白。
+- 将“已同步记录”收敛为 48dp 可触达的轻量“查看记录”入口，并统一 TalkBack 语义和打开中状态。
+- 优化快速添加、Work Editor linked block 定位，以及 History、Summary、Settings 和 Data Management 的层级与交互反馈。
+
+### 数据与协议
+
+- Room Schema 未变化，Room database version 继续为 2。
+- Backup 协议未变化，backupFormatVersion 继续为 2。
+- 本版本不执行新的数据库 Migration。
+
 ## 0.3.0 - 内部试用版（2026-07-30）
 
 ### UI/UX

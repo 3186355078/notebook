@@ -1,6 +1,6 @@
 # WorkLog AI 0.3.0 UI 深度重构报告
 
-版本：`0.3.1-dev`（versionCode 4）
+版本：`0.3.1`（versionCode 4）
 基线：`v0.3.0-internal`
 设备：HONOR PPG-AN00，Android 16 / API 36（不记录设备序列号）
 
@@ -124,7 +124,7 @@
 - 应用图标与 Splash 已复核并保留本地 Vector 方案；本轮重点放在高频页面和应用框架，没有引入新品牌图片资产。
 - Compose 的 `LocalClipboardManager` 仍有一项上游弃用警告，不影响当前复制功能或本轮验收。
 
-## 第二轮 UI/UX 精修（0.3.1-dev）
+## 第二轮 UI/UX 精修（0.3.1）
 
 第二轮在既有 0.3.0 设计系统上做定向收敛，不建立新的视觉体系，也不改变 Todo、WorkEntry、Summary、Room 或备份协议的业务语义。
 
@@ -170,3 +170,5 @@
 - Android 真机集成测试连续激活 10 次，只进入一个目标；返回一次回到 Today；Activity 重建不自动重复导航。
 
 真机专项和全量 AndroidJUnitRunner 均已执行：连续激活 10 次只进入一个目标页面，一次返回回到 Today，Activity 重建没有自动重复导航；全量 60/60，failures/errors/skipped = 0。
+
+PR #2 已于 2026-08-02 由 Draft 转为 Ready，并以普通 Merge Commit `87f194d38b3f07fa389eb9d00348f8ffd17010df` 合入 `main`。合并过程未 force push，未改动 Room Schema、Migration 或 Backup 协议。
