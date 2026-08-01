@@ -13,6 +13,7 @@ data class TodayUiState(
     val blocks: List<EditorBlockUiModel> = emptyList(),
     val saveState: SaveState = SaveState.Idle,
     val focusedBlockId: String? = null,
+    val highlightedBlockId: String? = null,
     val pendingDeleteBlockId: String? = null,
     val errorMessage: String? = null,
     val isStructureOperationInProgress: Boolean = false,

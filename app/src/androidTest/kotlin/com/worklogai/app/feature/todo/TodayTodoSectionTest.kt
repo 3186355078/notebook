@@ -144,13 +144,36 @@ class TodayTodoSectionTest {
         val linked = todo("linked", "已同步", status = TodoStatus.DONE).copy(linkedContentBlockId = "block")
         val actions = render(state(linked))
 
-        composeRule.onNodeWithText("已同步记录").performClick()
+        composeRule.onNodeWithText("查看记录").performClick()
         composeRule.onNodeWithContentDescription("“已同步”更多操作").performClick()
         composeRule.onNodeWithText("重新同步为新的工作记录").performClick()
 
         composeRule.runOnIdle {
             assertTrue(actions.contains(TodayTodoAction.OpenLinkedRecord("linked")))
             assertEquals(TodayTodoAction.RequestResync("linked"), actions.last())
+        }
+    }
+
+    @Test
+    fun linkedRecordActionDisablesAfterFirstActivation() {
+        val linked = todo("linked", "已同步", status = TodoStatus.DONE).copy(linkedContentBlockId = "block")
+        val actions =
+            render(state(linked)) { current, action ->
+                if (action == TodayTodoAction.OpenLinkedRecord("linked")) {
+                    current.copy(navigatingLinkedTodoId = "linked")
+                } else {
+                    current
+                }
+            }
+
+        composeRule.onNodeWithTag("linked_record_linked").performClick()
+        composeRule.onNodeWithTag("linked_record_linked").assertIsNotEnabled()
+
+        composeRule.runOnIdle {
+            assertEquals(
+                1,
+                actions.count { it == TodayTodoAction.OpenLinkedRecord("linked") },
+            )
         }
     }
 

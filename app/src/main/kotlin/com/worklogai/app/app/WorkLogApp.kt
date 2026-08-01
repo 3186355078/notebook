@@ -29,24 +29,27 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavOptions
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.navigation.navOptions
 import com.worklogai.app.R
 import com.worklogai.app.app.navigation.DATA_MANAGEMENT_ROUTE
 import com.worklogai.app.app.navigation.ENTRY_DATE_ARGUMENT
 import com.worklogai.app.app.navigation.ENTRY_EDITOR_ROUTE
+import com.worklogai.app.app.navigation.LINKED_CONTENT_BLOCK_ARGUMENT
 import com.worklogai.app.app.navigation.SETTINGS_ROUTE
 import com.worklogai.app.app.navigation.SUMMARY_PERIOD_ROUTE
 import com.worklogai.app.app.navigation.SummaryNavigationTarget
 import com.worklogai.app.app.navigation.TopLevelDestination
-import com.worklogai.app.app.navigation.entryEditorRoute
 import com.worklogai.app.app.navigation.summaryPeriodRoute
 import com.worklogai.app.feature.datamanagement.DataManagementScreen
 import com.worklogai.app.feature.editor.EntryEditorScreen
 import com.worklogai.app.feature.editor.TodayScreen
+import com.worklogai.app.feature.editor.TodayScreenNavigation
 import com.worklogai.app.feature.history.HistoryScreen
 import com.worklogai.app.feature.settings.SettingsScreen
 import com.worklogai.app.feature.summary.SummaryScreen
@@ -267,17 +270,36 @@ private fun WorkLogNavHost(
     ) {
         composable(TopLevelDestination.TODAY.route) {
             TodayScreen(
-                onOpenEntry = { date -> navController.navigate(entryEditorRoute(date.toString())) },
+                navigation =
+                    TodayScreenNavigation(
+                        openEntry = { date -> navController.navigateToEntryEditor(date.toString()) },
+                        openLinkedEntry = { date, blockId ->
+                            navController.navigateToEntryEditor(date.toString(), blockId)
+                        },
+                    ),
             )
         }
         composable(TopLevelDestination.HISTORY.route) {
-            HistoryScreen(onOpenEntry = { date -> navController.navigate(entryEditorRoute(date.toString())) })
+            HistoryScreen(onOpenEntry = { date -> navController.navigateToEntryEditor(date.toString()) })
         }
-        composable(ENTRY_EDITOR_ROUTE) { entry ->
+        composable(
+            route = ENTRY_EDITOR_ROUTE,
+            arguments =
+                listOf(
+                    navArgument(LINKED_CONTENT_BLOCK_ARGUMENT) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+        ) { entry ->
             EntryEditorScreen(
                 entryDate = entry.arguments?.getString(ENTRY_DATE_ARGUMENT),
                 onInvalidDate = navController::navigateUp,
-                onOpenEntry = { date -> navController.navigate(entryEditorRoute(date.toString())) },
+                onOpenEntry = { date -> navController.navigateToEntryEditor(date.toString()) },
+                onOpenLinkedEntry = { date, blockId ->
+                    navController.navigateToEntryEditor(date.toString(), blockId)
+                },
             )
         }
         composable(TopLevelDestination.SUMMARY.route) {

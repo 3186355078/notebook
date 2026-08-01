@@ -83,6 +83,12 @@ sealed interface TodayAction {
 
     data object FocusRequestConsumed : TodayAction
 
+    data object LinkedBlockHighlightConsumed : TodayAction
+
+    data class ShowLinkedBlock(
+        val blockId: String,
+    ) : TodayAction
+
     data object FlushPendingEdits : TodayAction
 
     data object RetryLoad : TodayAction

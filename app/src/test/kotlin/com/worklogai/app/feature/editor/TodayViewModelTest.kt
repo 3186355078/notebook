@@ -2,6 +2,8 @@ package com.worklogai.app.feature.editor
 
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
+import com.worklogai.app.app.navigation.ENTRY_DATE_ARGUMENT
+import com.worklogai.app.app.navigation.LINKED_CONTENT_BLOCK_ARGUMENT
 import com.worklogai.app.core.attachment.AttachmentFileStore
 import com.worklogai.app.core.attachment.CleanupResult
 import com.worklogai.app.core.attachment.StoredImage
@@ -21,6 +23,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -93,6 +97,64 @@ class TodayViewModelTest {
                 .single() as TextBlockUiModel
         assertEquals(block.id, viewModel.uiState.value.focusedBlockId)
         assertEquals("", block.text)
+    }
+
+    @Test
+    fun `linked block argument is consumed and highlights an existing block once`() {
+        val linkedBlock = repository.addText(date, "已同步工作记录")
+        val savedStateHandle =
+            SavedStateHandle(
+                mapOf(
+                    ENTRY_DATE_ARGUMENT to date.toString(),
+                    LINKED_CONTENT_BLOCK_ARGUMENT to linkedBlock.id,
+                ),
+            )
+        val linkedViewModel =
+            TodayViewModel(
+                workEntryRepository = repository,
+                attachmentFileStore = fileStore,
+                tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
+                timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
+                savedStateHandle = savedStateHandle,
+            )
+
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        assertEquals(linkedBlock.id, linkedViewModel.uiState.value.highlightedBlockId)
+        assertNull(savedStateHandle.get<String>(LINKED_CONTENT_BLOCK_ARGUMENT))
+        linkedViewModel.onAction(TodayAction.LinkedBlockHighlightConsumed)
+        assertNull(linkedViewModel.uiState.value.highlightedBlockId)
+        repository.emit(date)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        assertNull(linkedViewModel.uiState.value.highlightedBlockId)
+    }
+
+    @Test
+    fun `missing linked block is consumed without focus or crash`() {
+        val savedStateHandle =
+            SavedStateHandle(
+                mapOf(
+                    ENTRY_DATE_ARGUMENT to date.toString(),
+                    LINKED_CONTENT_BLOCK_ARGUMENT to "missing-block",
+                ),
+            )
+        val linkedViewModel =
+            TodayViewModel(
+                workEntryRepository = repository,
+                attachmentFileStore = fileStore,
+                tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
+                timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
+                savedStateHandle = savedStateHandle,
+            )
+
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        assertNull(linkedViewModel.uiState.value.highlightedBlockId)
+        assertEquals(
+            TodayUiEvent.ShowMessage("关联的工作记录已不存在"),
+            runBlocking { linkedViewModel.events.first() },
+        )
+        assertNull(savedStateHandle.get<String>(LINKED_CONTENT_BLOCK_ARGUMENT))
     }
 
     @Test

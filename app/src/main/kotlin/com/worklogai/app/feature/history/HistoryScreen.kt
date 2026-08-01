@@ -206,11 +206,15 @@ private fun HistoryItemCard(
                 .fillMaxWidth()
                 .semantics { contentDescription = "打开${item.dateLabel}工作记录：${item.previewText}" }
                 .clickable(onClick = onOpen),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surface,
         shape = MaterialTheme.shapes.large,
     ) {
         Row(
-            modifier = Modifier.padding(WorkLogSpacing.medium),
+            modifier =
+                Modifier.padding(
+                    horizontal = WorkLogSpacing.small,
+                    vertical = WorkLogSpacing.medium,
+                ),
             horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
         ) {
             Box(
@@ -218,7 +222,10 @@ private fun HistoryItemCard(
                     Modifier
                         .width(3.dp)
                         .height(68.dp)
-                        .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.extraSmall),
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                            MaterialTheme.shapes.extraSmall,
+                        ),
             )
             Column(
                 modifier = Modifier.weight(1f),

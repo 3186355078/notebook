@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
@@ -150,7 +152,11 @@ internal fun SummaryContent(
                 PeriodControls(state.summaryType, state.period, onAction)
             }
         }
-        Text("将发送该时间范围内允许用于 AI 总结的文字、图片说明和表格内容。", style = MaterialTheme.typography.bodySmall)
+        Text(
+            "将发送该时间范围内允许用于 AI 总结的文字、图片说明和表格内容。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
         if (state.isLoading) {
             CircularProgressIndicator()
         } else {
@@ -166,6 +172,7 @@ private fun SummaryLoadedContent(
 ) {
     Text(
         "共 ${state.entryCount} 条记录，其中 ${state.eligibleEntryCount} 条可用于 AI 总结",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.bodySmall,
     )
     SummaryFlags(state)
@@ -199,12 +206,28 @@ private fun SummaryFlags(state: SummaryUiState) {
 private fun SummaryGenerationStatus(generation: SummaryGenerationState) {
     when (generation) {
         is SummaryGenerationState.Failed -> {
-            Text(generation.message, color = MaterialTheme.colorScheme.error)
-            if (generation.hasPreviousContent) {
-                Text(
-                    "重新生成失败，当前展示上一次结果。",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            WorkLogContentSurface(emphasized = true) {
+                Column(
+                    modifier = Modifier.padding(WorkLogSpacing.medium),
+                    verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
+                ) {
+                    Text(
+                        "本次生成未完成",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        generation.message,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    if (generation.hasPreviousContent) {
+                        Text(
+                            "仍保留并展示上一次成功结果。",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
             }
         }
         is SummaryGenerationState.NoEligibleContent ->
@@ -212,9 +235,12 @@ private fun SummaryGenerationStatus(generation: SummaryGenerationState) {
                 if (generation.allEntriesBlocked) "该时间范围内的记录未允许用于 AI 总结" else "该时间范围内没有可用于总结的工作记录",
             )
         SummaryGenerationState.Generating ->
-            Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
-                CircularProgressIndicator()
-                Text("正在生成总结…")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                Text("正在生成总结…", style = MaterialTheme.typography.bodyMedium)
             }
         else -> Unit
     }

@@ -39,7 +39,7 @@ fun WorkLogPageHeader(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
     ) {
         eyebrow?.let {
             Text(
@@ -51,7 +51,7 @@ fun WorkLogPageHeader(
         Text(
             text = title,
             modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleLarge,
         )
         Text(
             text = subtitle,
@@ -84,7 +84,7 @@ fun WorkLogSectionHeader(
             Text(
                 text = title,
                 modifier = Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
             )
             description?.let {
                 Text(
@@ -113,7 +113,11 @@ fun WorkLogStatusChip(
         shape = MaterialTheme.shapes.extraSmall,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = WorkLogSpacing.small, vertical = WorkLogSpacing.extraSmall),
+            modifier =
+                Modifier.padding(
+                    horizontal = WorkLogSpacing.small,
+                    vertical = WorkLogSpacing.extraSmall,
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
         ) {
@@ -142,7 +146,7 @@ fun WorkLogContentSurface(
             if (emphasized) {
                 BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
             } else {
-                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                null
             },
         content = content,
     )
@@ -159,15 +163,15 @@ fun WorkLogActionRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = 64.dp)
+                .defaultMinSize(minHeight = 60.dp)
                 .clickable(enabled = onClick != null, onClick = { onClick?.invoke() })
-                .padding(vertical = WorkLogSpacing.small),
+                .padding(horizontal = WorkLogSpacing.extraSmall, vertical = WorkLogSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.primary,
             shape = MaterialTheme.shapes.medium,
         ) {
             Icon(content.icon, contentDescription = null, modifier = Modifier.padding(WorkLogSpacing.small).size(22.dp))

@@ -19,6 +19,7 @@ data class TodayTodoUiState(
     val completionPrompt: TodoCompletionPrompt? = null,
     val deleteConfirmationId: String? = null,
     val conversionPrompt: TodoConversionPrompt? = null,
+    val navigatingLinkedTodoId: String? = null,
     val errorMessage: String? = null,
 ) {
     val incompleteTodos: List<DailyTodo>
@@ -165,6 +166,10 @@ sealed interface TodayTodoAction {
         val todoId: String,
     ) : Primary
 
+    data object LinkedRecordNavigationFailed : Primary
+
+    data object LinkedRecordNavigationReturned : Primary
+
     data class RequestTextConversion(
         val blockId: String,
     ) : Conversion
@@ -184,6 +189,8 @@ sealed interface TodayTodoUiEvent {
     ) : TodayTodoUiEvent
 
     data class OpenWorkEntry(
+        val todoId: String,
         val date: LocalDate,
+        val linkedContentBlockId: String,
     ) : TodayTodoUiEvent
 }

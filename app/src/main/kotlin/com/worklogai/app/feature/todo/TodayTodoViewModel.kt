@@ -75,6 +75,9 @@ class TodayTodoViewModel
                 TodayTodoAction.ToggleCompletedCollapsed ->
                     _uiState.update { it.copy(completedCollapsed = !it.completedCollapsed) }
                 is TodayTodoAction.OpenLinkedRecord -> openLinkedRecord(action.todoId)
+                TodayTodoAction.LinkedRecordNavigationFailed,
+                TodayTodoAction.LinkedRecordNavigationReturned,
+                -> _uiState.update { it.copy(navigatingLinkedTodoId = null) }
             }
         }
 
@@ -438,11 +441,24 @@ class TodayTodoViewModel
         }
 
         private fun openLinkedRecord(todoId: String) {
+            if (_uiState.value.navigatingLinkedTodoId != null) return
             val todo = findTodo(todoId) ?: return
-            if (todo.linkedContentBlockId == null) {
+            val linkedContentBlockId = todo.linkedContentBlockId
+            if (linkedContentBlockId == null) {
                 showMessage("关联的工作记录已失效")
             } else {
-                _events.trySend(TodayTodoUiEvent.OpenWorkEntry(todo.scheduledDate))
+                _uiState.update { it.copy(navigatingLinkedTodoId = todo.id) }
+                val result =
+                    _events.trySend(
+                        TodayTodoUiEvent.OpenWorkEntry(
+                            todoId = todo.id,
+                            date = todo.scheduledDate,
+                            linkedContentBlockId = linkedContentBlockId,
+                        ),
+                    )
+                if (result.isFailure) {
+                    _uiState.update { it.copy(navigatingLinkedTodoId = null) }
+                }
             }
         }
 
@@ -491,8 +507,8 @@ class TodayTodoViewModel
 
         private fun runBusy(block: suspend () -> Unit) {
             if (_uiState.value.isBusy) return
+            _uiState.update { it.copy(isBusy = true) }
             viewModelScope.launch {
-                _uiState.update { it.copy(isBusy = true) }
                 try {
                     block()
                 } finally {

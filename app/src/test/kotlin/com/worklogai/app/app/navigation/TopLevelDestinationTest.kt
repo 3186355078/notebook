@@ -13,4 +13,13 @@ class TopLevelDestinationTest {
         assertEquals(routes.size, routes.toSet().size)
         assertTrue(SETTINGS_ROUTE in routes)
     }
+
+    @Test
+    fun `entry route includes an optional linked block without exposing record content`() {
+        assertEquals("entry/2026-07-30", entryEditorRoute("2026-07-30"))
+        assertEquals(
+            "entry/2026-07-30?linkedContentBlockId=block-1",
+            entryEditorRoute("2026-07-30", "block-1"),
+        )
+    }
 }

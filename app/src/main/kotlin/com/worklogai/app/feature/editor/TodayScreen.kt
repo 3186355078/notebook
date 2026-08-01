@@ -3,6 +3,7 @@ package com.worklogai.app.feature.editor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -70,12 +72,22 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private const val MIN_DATE_REFRESH_DELAY_MS = 1_000L
+private const val LINKED_BLOCK_HIGHLIGHT_MILLIS = 1_500L
+private const val EDITOR_BLOCK_LIST_OFFSET = 3
 private val TODAY_WIDE_CONTENT_MAX_WIDTH = 640.dp
+
+data class TodayScreenNavigation(
+    val openEntry: (LocalDate) -> Unit = {},
+    val openLinkedEntry: (LocalDate, String) -> Boolean = { date, _ ->
+        openEntry(date)
+        true
+    },
+)
 
 @Composable
 fun TodayScreen(
     followCurrentDate: Boolean = true,
-    onOpenEntry: (LocalDate) -> Unit = {},
+    navigation: TodayScreenNavigation = TodayScreenNavigation(),
     modifier: Modifier = Modifier,
     viewModel: TodayViewModel = hiltViewModel(),
     todoViewModel: TodayTodoViewModel = hiltViewModel(),
@@ -89,6 +101,7 @@ fun TodayScreen(
         }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        todoViewModel.onAction(TodayTodoAction.LinkedRecordNavigationReturned)
         if (followCurrentDate) {
             val date = LocalDate.now()
             viewModel.onAction(TodayAction.DateChanged(date))
@@ -111,7 +124,16 @@ fun TodayScreen(
     LaunchedEffect(todoViewModel) {
         todoViewModel.events.collectLatest { event ->
             when (event) {
-                is TodayTodoUiEvent.OpenWorkEntry -> onOpenEntry(event.date)
+                is TodayTodoUiEvent.OpenWorkEntry -> {
+                    if (!followCurrentDate && event.date == viewModel.uiState.value.date) {
+                        viewModel.onAction(TodayAction.ShowLinkedBlock(event.linkedContentBlockId))
+                        if (viewModel.uiState.value.highlightedBlockId == null) {
+                            todoViewModel.onAction(TodayTodoAction.LinkedRecordNavigationReturned)
+                        }
+                    } else if (!navigation.openLinkedEntry(event.date, event.linkedContentBlockId)) {
+                        todoViewModel.onAction(TodayTodoAction.LinkedRecordNavigationFailed)
+                    }
+                }
                 is TodayTodoUiEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -138,6 +160,9 @@ fun TodayScreen(
         snackbarHostState = snackbarHostState,
         onAction = viewModel::onAction,
         onTodoAction = todoViewModel::onAction,
+        onLinkedBlockHighlightFinished = {
+            todoViewModel.onAction(TodayTodoAction.LinkedRecordNavigationReturned)
+        },
         onPickImage = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
         modifier = modifier,
     )
@@ -151,6 +176,7 @@ internal fun TodayScreenContent(
     snackbarHostState: SnackbarHostState,
     onAction: (TodayAction) -> Unit,
     onTodoAction: (TodayTodoAction) -> Unit = {},
+    onLinkedBlockHighlightFinished: () -> Unit = {},
     onPickImage: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -160,9 +186,18 @@ internal fun TodayScreenContent(
             DateTimeFormatter.ofPattern("M月d日 EEEE", Locale.SIMPLIFIED_CHINESE)
         }
     val focusedIndex = state.blocks.indexOfFirst { it.id == state.focusedBlockId }
+    val highlightedIndex = state.blocks.indexOfFirst { it.id == state.highlightedBlockId }
 
     LaunchedEffect(state.focusedBlockId, focusedIndex) {
-        if (focusedIndex >= 0) listState.animateScrollToItem(focusedIndex + 2)
+        if (focusedIndex >= 0) listState.animateScrollToItem(focusedIndex + EDITOR_BLOCK_LIST_OFFSET)
+    }
+    LaunchedEffect(state.highlightedBlockId, highlightedIndex) {
+        if (highlightedIndex >= 0) {
+            listState.animateScrollToItem(highlightedIndex + EDITOR_BLOCK_LIST_OFFSET)
+            delay(LINKED_BLOCK_HIGHLIGHT_MILLIS)
+            onLinkedBlockHighlightFinished()
+            onAction(TodayAction.LinkedBlockHighlightConsumed)
+        }
     }
 
     BoxWithConstraints(
@@ -369,6 +404,7 @@ private fun LazyListScope.editorBlocks(
                         canMoveUp = index > 0 && !state.isStructureOperationInProgress,
                         canMoveDown = index < state.blocks.lastIndex && !state.isStructureOperationInProgress,
                         requestsFocus = block.id == state.focusedBlockId,
+                        isHighlighted = block.id == state.highlightedBlockId,
                     ),
                 onAction = onAction,
                 onConvertTextBlock = { blockId ->
@@ -422,6 +458,7 @@ private fun EditorBlockItem(
     onConvertTextBlock: (String) -> Unit,
 ) {
     val block = presentation.block
+    val blockModifier = editorBlockModifier(presentation.isHighlighted)
     val controls =
         BlockControls(
             canMoveUp = presentation.canMoveUp,
@@ -450,14 +487,21 @@ private fun EditorBlockItem(
                         },
                         onFocusRequestHandled = { onAction(TodayAction.FocusRequestConsumed) },
                     ),
+                modifier = blockModifier,
             )
 
-        is UnsupportedBlockUiModel -> UnsupportedBlockCard(block = block, controls = controls)
+        is UnsupportedBlockUiModel ->
+            UnsupportedBlockCard(
+                block = block,
+                controls = controls,
+                modifier = blockModifier,
+            )
         is ImageBlockUiModel ->
             ImageBlockEditor(
                 block = block,
                 controls = controls,
                 onCaptionChanged = { onAction(TodayAction.ImageCaptionChanged(block.id, it)) },
+                modifier = blockModifier,
             )
 
         is TableBlockUiModel ->
@@ -480,13 +524,28 @@ private fun EditorBlockItem(
                             onAction(TodayAction.DeleteTableColumn(block.id, columnId))
                         },
                     ),
+                modifier = blockModifier,
             )
     }
 }
+
+@Composable
+private fun editorBlockModifier(isHighlighted: Boolean): Modifier =
+    if (isHighlighted) {
+        Modifier
+            .border(
+                width = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
+                shape = MaterialTheme.shapes.large,
+            ).padding(2.dp)
+    } else {
+        Modifier
+    }
 
 private data class EditorBlockPresentation(
     val block: EditorBlockUiModel,
     val canMoveUp: Boolean,
     val canMoveDown: Boolean,
     val requestsFocus: Boolean,
+    val isHighlighted: Boolean,
 )

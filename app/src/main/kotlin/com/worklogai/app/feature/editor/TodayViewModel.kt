@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.worklogai.app.app.navigation.ENTRY_DATE_ARGUMENT
+import com.worklogai.app.app.navigation.LINKED_CONTENT_BLOCK_ARGUMENT
 import com.worklogai.app.core.attachment.AttachmentFileStore
 import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.common.time.TimeProvider
@@ -47,6 +48,7 @@ class TodayViewModel
         private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val fixedEntryDate = savedStateHandle.get<String>(ENTRY_DATE_ARGUMENT)?.toLocalDateOrNull()
+        private var pendingLinkedBlockId = savedStateHandle.remove<String>(LINKED_CONTENT_BLOCK_ARGUMENT)
         private val followsCurrentDate = fixedEntryDate == null
         private val initialDate =
             fixedEntryDate ?: savedStateHandle.get<String>(SELECTED_DATE_KEY)?.toLocalDateOrNull()
@@ -93,6 +95,8 @@ class TodayViewModel
                     ) { tableContentEditor.deleteRow(it, action.rowId) }
                 TodayAction.FlushPendingEdits -> flushCurrentDate()
                 TodayAction.FocusRequestConsumed -> updateState { copy(focusedBlockId = null) }
+                TodayAction.LinkedBlockHighlightConsumed -> updateState { copy(highlightedBlockId = null) }
+                is TodayAction.ShowLinkedBlock -> showLinkedBlock(action.blockId)
                 is TodayAction.ImageCaptionChanged -> changeImageCaption(action.blockId, action.caption)
                 is TodayAction.ImageSelected -> importImage(action.uri)
                 is TodayAction.MoveBlockDown -> moveBlock(action.blockId, direction = 1)
@@ -141,6 +145,7 @@ class TodayViewModel
                         is DataResult.Success -> {
                             entriesByDate[date] = result.value
                             refreshUi(date, isLoading = false)
+                            revealPendingLinkedBlock()
                             workEntryRepository.observeEntry(date).collect { observed ->
                                 if (_uiState.value.date != date) return@collect
                                 when (observed) {
@@ -163,6 +168,20 @@ class TodayViewModel
                     isLoading = false,
                     errorMessage = "工作记录加载失败",
                 )
+            }
+        }
+
+        private fun revealPendingLinkedBlock() {
+            val blockId = pendingLinkedBlockId ?: return
+            pendingLinkedBlockId = null
+            showLinkedBlock(blockId)
+        }
+
+        private fun showLinkedBlock(blockId: String) {
+            if (entryFor(_uiState.value.date)?.blocks?.any { it.id == blockId } == true) {
+                updateState { copy(highlightedBlockId = blockId) }
+            } else {
+                emitMessage("关联的工作记录已不存在")
             }
         }
 

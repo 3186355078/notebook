@@ -45,9 +45,9 @@ class TodayScreenContentTest {
             }
         }
 
-        composeRule.onNodeWithText("图片文件已不存在").assertIsDisplayed()
-        composeRule.onNodeWithText("图片说明（可选）").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("更多图片操作").performClick()
+        composeRule.onNodeWithText("图片文件已不存在").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("图片说明（可选）").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("更多图片操作").performScrollTo().performClick()
         composeRule.onNodeWithText("删除记录").performClick()
         composeRule.runOnIdle { assertEquals(TodayAction.RequestDeleteBlock("image"), actions.last()) }
     }

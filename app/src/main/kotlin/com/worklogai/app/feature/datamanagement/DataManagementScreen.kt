@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -27,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -129,16 +131,31 @@ internal fun DataManagementContent(
             )
             MarkdownExportSection(state, onAction)
             BackupSection(state, onAction)
-            state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            state.warningMessage?.let { Text(it, color = MaterialTheme.colorScheme.tertiary) }
+            state.errorMessage?.let {
+                WorkLogStatusChip(
+                    label = it,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            state.warningMessage?.let {
+                WorkLogStatusChip(
+                    label = it,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
             if (state.requiresRecovery) {
                 Text("恢复未能完整回滚，请重新启动后检查数据。", color = MaterialTheme.colorScheme.error)
             }
             if (state.wasCancelled) Text("操作已取消")
             state.operation?.let { operation ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator()
-                    Text(operation.label())
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    Text(operation.label(), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

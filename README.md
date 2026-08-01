@@ -2,7 +2,7 @@
 
 WorkLog AI 是一款面向个人使用的 Android 工作日志应用。它以本地记录为核心，计划支持文字、图片和简单表格，并在用户明确允许时调用大模型生成周报和月报。
 
-当前仓库正在封版 0.3.0 内部试用版（versionCode 3）。本版本系统性重构 Compose 视觉层级、设计系统和主要页面，但不改变 Room version 2、Migration 1→2、备份格式 v2 或待办业务语义。阶段状态与实际验证结果见 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)。
+当前仓库正在开发 0.3.1-dev（versionCode 4），重点精修 Compose 交互与视觉层级，并修复 linked work record 的重复导航；Room version 2、Migration 1→2、备份格式 v2 和待办业务语义保持不变。阶段状态与实际验证结果见 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)。
 
 ## 当前可用界面
 
