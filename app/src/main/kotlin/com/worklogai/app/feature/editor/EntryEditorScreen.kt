@@ -12,6 +12,10 @@ fun EntryEditorScreen(
     entryDate: String?,
     onInvalidDate: () -> Unit,
     onOpenEntry: (LocalDate) -> Unit = {},
+    onOpenLinkedEntry: (LocalDate, String) -> Boolean = { date, _ ->
+        onOpenEntry(date)
+        true
+    },
     modifier: Modifier = Modifier,
 ) {
     val date = entryDate?.let(::parseDateOrNull)
@@ -25,7 +29,11 @@ fun EntryEditorScreen(
     } else {
         TodayScreen(
             followCurrentDate = false,
-            onOpenEntry = onOpenEntry,
+            navigation =
+                TodayScreenNavigation(
+                    openEntry = onOpenEntry,
+                    openLinkedEntry = onOpenLinkedEntry,
+                ),
             modifier = modifier,
         )
     }

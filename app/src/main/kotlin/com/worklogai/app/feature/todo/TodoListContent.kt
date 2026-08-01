@@ -22,9 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 
-private val TODO_LIST_MAX_HEIGHT = 520.dp
-private val TODO_ITEM_ESTIMATED_HEIGHT = 88.dp
+private val TODO_LIST_MAX_HEIGHT = 480.dp
+private val TODO_ITEM_ESTIMATED_HEIGHT = 80.dp
 
 @Composable
 internal fun TodoListContent(
@@ -51,7 +52,7 @@ internal fun TodoListContent(
                         .fillMaxWidth()
                         .height(listHeight)
                         .testTag("todo_list"),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
             ) {
                 itemsIndexed(
                     items = state.incompleteTodos,
@@ -59,9 +60,13 @@ internal fun TodoListContent(
                 ) { index, todo ->
                     TodoItem(
                         todo = todo,
-                        canMoveUp = index > 0,
-                        canMoveDown = index < state.incompleteTodos.lastIndex,
-                        isDragging = state.draggedTodoId == todo.id,
+                        presentation =
+                            TodoItemPresentation(
+                                canMoveUp = index > 0,
+                                canMoveDown = index < state.incompleteTodos.lastIndex,
+                                isDragging = state.draggedTodoId == todo.id,
+                                isLinkedNavigationInProgress = state.navigatingLinkedTodoId == todo.id,
+                            ),
                         onAction = onAction,
                     )
                 }
@@ -88,9 +93,10 @@ internal fun TodoListContent(
                     ) { todo ->
                         TodoItem(
                             todo = todo,
-                            canMoveUp = false,
-                            canMoveDown = false,
-                            isDragging = false,
+                            presentation =
+                                TodoItemPresentation(
+                                    isLinkedNavigationInProgress = state.navigatingLinkedTodoId == todo.id,
+                                ),
                             onAction = onAction,
                         )
                     }

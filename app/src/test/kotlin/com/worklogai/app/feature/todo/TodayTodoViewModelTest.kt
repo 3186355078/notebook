@@ -22,6 +22,8 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -269,6 +271,31 @@ class TodayTodoViewModelTest {
         assertEquals(future, fixed.uiState.value.date)
     }
 
+    @Test
+    fun `rapid linked record requests emit once until navigation returns`() {
+        val todo = repository.addLinked("已同步记录", "linked-block")
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        repeat(10) {
+            viewModel.onAction(TodayTodoAction.OpenLinkedRecord(todo.id))
+        }
+
+        assertEquals(todo.id, viewModel.uiState.value.navigatingLinkedTodoId)
+        assertEquals(
+            TodayTodoUiEvent.OpenWorkEntry(todo.id, todo.scheduledDate, "linked-block"),
+            runBlocking { viewModel.events.first() },
+        )
+
+        viewModel.onAction(TodayTodoAction.LinkedRecordNavigationReturned)
+        assertNull(viewModel.uiState.value.navigatingLinkedTodoId)
+        viewModel.onAction(TodayTodoAction.OpenLinkedRecord(todo.id))
+
+        assertEquals(
+            TodayTodoUiEvent.OpenWorkEntry(todo.id, todo.scheduledDate, "linked-block"),
+            runBlocking { viewModel.events.first() },
+        )
+    }
+
     private fun fixedDateProvider(today: LocalDate): LocalDateProvider =
         object : LocalDateProvider {
             override fun today(): LocalDate = today
@@ -299,6 +326,11 @@ class TodayTodoViewModelTest {
             }
 
         fun byId(id: String): DailyTodo? = allItems.firstOrNull { it.id == id }
+
+        fun addLinked(
+            title: String,
+            blockId: String,
+        ): DailyTodo = add(title).copy(linkedContentBlockId = blockId).also(::replace)
 
         override fun observeByDate(date: LocalDate): Flow<DataResult<List<DailyTodo>>> = dateFlow
 

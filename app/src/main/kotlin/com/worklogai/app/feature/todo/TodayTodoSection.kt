@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -33,7 +36,6 @@ import androidx.compose.material.icons.outlined.Pending
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -63,6 +65,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,6 +82,13 @@ import kotlin.math.abs
 private const val DRAG_STEP_PX = 72f
 private const val PERCENT_MULTIPLIER = 100
 private const val OLDER_TODO_PREVIEW_LIMIT = 3
+
+internal data class TodoItemPresentation(
+    val canMoveUp: Boolean = false,
+    val canMoveDown: Boolean = false,
+    val isDragging: Boolean = false,
+    val isLinkedNavigationInProgress: Boolean = false,
+)
 
 @Composable
 @Suppress("LongMethod")
@@ -119,7 +129,7 @@ fun TodayTodoSection(
 private fun TodoSectionHeader(state: TodayTodoUiState) {
     Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
         WorkLogSectionHeader(
-            title = "今日待办",
+            title = "待办事项",
             description = "已完成 ${state.doneCount}/${state.todos.size} · 进行中 ${state.inProgressCount}",
             trailing = {
                 WorkLogStatusChip(
@@ -150,6 +160,15 @@ private fun QuickTodoInput(
         onValueChange = { onAction(TodayTodoAction.QuickTitleChanged(it)) },
         placeholder = { Text("添加今日待办……") },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions =
+            KeyboardActions(
+                onDone = {
+                    if (state.quickTitle.isNotBlank() && !state.isBusy) {
+                        onAction(TodayTodoAction.QuickAdd)
+                    }
+                },
+            ),
         trailingIcon = {
             IconButton(
                 onClick = { onAction(TodayTodoAction.QuickAdd) },
@@ -203,16 +222,14 @@ private fun OlderTodoBanner(
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun TodoItem(
     todo: DailyTodo,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    isDragging: Boolean,
+    presentation: TodoItemPresentation,
     onAction: (TodayTodoAction) -> Unit,
 ) {
     var menuExpanded by remember(todo.id) { mutableStateOf(false) }
     var dragDistance by remember(todo.id) { mutableFloatStateOf(0f) }
     val containerColor by
         animateColorAsState(
-            if (isDragging) {
+            if (presentation.isDragging) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
             } else {
                 MaterialTheme.colorScheme.surfaceContainerLow
@@ -221,7 +238,7 @@ internal fun TodoItem(
         )
     val elevation by
         animateDpAsState(
-            targetValue = if (isDragging) WorkLogElevation.dragging else WorkLogElevation.flat,
+            targetValue = if (presentation.isDragging) WorkLogElevation.dragging else WorkLogElevation.flat,
             label = "todo-drag-elevation",
         )
     Surface(
@@ -234,12 +251,12 @@ internal fun TodoItem(
                     customActions =
                         listOf(
                             CustomAccessibilityAction("上移") {
-                                if (canMoveUp) onAction(TodayTodoAction.AccessibleMove(todo.id, -1))
-                                canMoveUp
+                                if (presentation.canMoveUp) onAction(TodayTodoAction.AccessibleMove(todo.id, -1))
+                                presentation.canMoveUp
                             },
                             CustomAccessibilityAction("下移") {
-                                if (canMoveDown) onAction(TodayTodoAction.AccessibleMove(todo.id, 1))
-                                canMoveDown
+                                if (presentation.canMoveDown) onAction(TodayTodoAction.AccessibleMove(todo.id, 1))
+                                presentation.canMoveDown
                             },
                             CustomAccessibilityAction("设为更高优先级") {
                                 todo.priority.higher()?.let {
@@ -259,7 +276,12 @@ internal fun TodoItem(
         shape = MaterialTheme.shapes.large,
         tonalElevation = elevation,
         shadowElevation = elevation,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border =
+            if (presentation.isDragging) {
+                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
+            } else {
+                null
+            },
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
@@ -303,7 +325,17 @@ internal fun TodoItem(
                 )
             }
             Column(
-                modifier = Modifier.weight(1f).padding(vertical = WorkLogSpacing.small),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(
+                            vertical =
+                                if (todo.status == TodoStatus.DONE || todo.status == TodoStatus.CANCELED) {
+                                    WorkLogSpacing.extraSmall
+                                } else {
+                                    WorkLogSpacing.small
+                                },
+                        ),
                 verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
             ) {
                 Text(
@@ -324,15 +356,17 @@ internal fun TodoItem(
                         },
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                todo.note?.let {
-                    Text(
-                        it,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+                todo.note
+                    ?.takeIf { todo.status != TodoStatus.DONE && todo.status != TodoStatus.CANCELED }
+                    ?.let {
+                        Text(
+                            it,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -346,11 +380,29 @@ internal fun TodoItem(
                         )
                     }
                     if (todo.linkedContentBlockId != null) {
-                        AssistChip(
+                        TextButton(
                             onClick = { onAction(TodayTodoAction.OpenLinkedRecord(todo.id)) },
-                            label = { Text("已同步记录") },
-                            leadingIcon = { Icon(Icons.Outlined.Link, contentDescription = null) },
-                        )
+                            enabled = !presentation.isLinkedNavigationInProgress,
+                            modifier =
+                                Modifier
+                                    .heightIn(min = 48.dp)
+                                    .testTag("linked_record_${todo.id}")
+                                    .semantics {
+                                        contentDescription = "查看“${todo.title}”的已同步工作记录"
+                                    },
+                            contentPadding = PaddingValues(horizontal = WorkLogSpacing.small),
+                        ) {
+                            Icon(
+                                Icons.Outlined.Link,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Text(
+                                if (presentation.isLinkedNavigationInProgress) "正在打开" else "查看记录",
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.padding(start = WorkLogSpacing.extraSmall),
+                            )
+                        }
                     }
                 }
             }
@@ -461,25 +513,36 @@ private fun TodoDialogs(
     state: TodayTodoUiState,
     onAction: (TodayTodoAction) -> Unit,
 ) {
-    state.editor?.let { draft -> TodoEditorDialog(draft, state.isBusy, onAction) }
-    state.completionPrompt?.let { prompt -> TodoCompletionDialog(prompt, state.isBusy, onAction) }
-    state.deleteConfirmationId?.let { id ->
-        val title = (state.todos + state.olderIncomplete).firstOrNull { it.id == id }?.title.orEmpty()
-        AlertDialog(
-            onDismissRequest = { onAction(TodayTodoAction.DismissDelete) },
-            title = { Text("删除待办？") },
-            text = { Text("“$title”将被删除，已关联的历史工作记录不会被删除。") },
-            confirmButton = {
-                Button(onClick = { onAction(TodayTodoAction.ConfirmDelete) }, enabled = !state.isBusy) {
-                    Text("删除")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { onAction(TodayTodoAction.DismissDelete) }) { Text("取消") }
-            },
-        )
+    when {
+        state.editor != null -> TodoEditorDialog(state.editor, state.isBusy, onAction)
+        state.completionPrompt != null -> TodoCompletionDialog(state.completionPrompt, state.isBusy, onAction)
+        state.deleteConfirmationId != null -> {
+            val title =
+                (state.todos + state.olderIncomplete)
+                    .firstOrNull { it.id == state.deleteConfirmationId }
+                    ?.title
+                    .orEmpty()
+            AlertDialog(
+                onDismissRequest = { onAction(TodayTodoAction.DismissDelete) },
+                title = { Text("删除待办？") },
+                text = { Text("“$title”将被删除，已关联的历史工作记录不会被删除。") },
+                confirmButton = {
+                    Button(onClick = { onAction(TodayTodoAction.ConfirmDelete) }, enabled = !state.isBusy) {
+                        Text("删除")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { onAction(TodayTodoAction.DismissDelete) }) { Text("取消") }
+                },
+            )
+        }
+        state.conversionPrompt != null ->
+            TodoConversionDialog(
+                state.conversionPrompt,
+                state.isBusy,
+                onAction,
+            )
     }
-    state.conversionPrompt?.let { prompt -> TodoConversionDialog(prompt, state.isBusy, onAction) }
 }
 
 @Composable
