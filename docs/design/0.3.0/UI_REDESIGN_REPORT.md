@@ -1,7 +1,7 @@
 # WorkLog AI 0.3.0 UI 深度重构报告
 
-版本：`0.3.0-dev`（versionCode 3）
-基线：`v0.2.0-internal`
+版本：`0.3.1-dev`（versionCode 4）
+基线：`v0.3.0-internal`
 设备：HONOR PPG-AN00，Android 16 / API 36（不记录设备序列号）
 
 ## 视觉方向
@@ -87,14 +87,14 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| JVM/Robolectric | 249/249，42 suites，failures/errors/skipped = 0 |
+| JVM/Robolectric | 254/254，42 suites，failures/errors/skipped = 0 |
 | Android Test 编译 | 通过 |
 | assembleDebug | 通过 |
 | lintDebug | 通过 |
 | Detekt | 通过 |
 | ktlintCheck | 通过 |
 | 强制执行 | `--rerun-tasks --no-build-cache` |
-| Connected Android Test | 54/54，failures/errors/skipped = 0 |
+| Android Instrumentation | 60/60，failures/errors/skipped = 0 |
 | 真机稳定性日志 | FATAL/ANR/OOM = 0 |
 
 ## 真机视觉验收
@@ -123,3 +123,50 @@
 - 其他 OEM 的 SAF Provider 和长期后台限制仍需内部试用观察。
 - 应用图标与 Splash 已复核并保留本地 Vector 方案；本轮重点放在高频页面和应用框架，没有引入新品牌图片资产。
 - Compose 的 `LocalClipboardManager` 仍有一项上游弃用警告，不影响当前复制功能或本轮验收。
+
+## 第二轮 UI/UX 精修（0.3.1-dev）
+
+第二轮在既有 0.3.0 设计系统上做定向收敛，不建立新的视觉体系，也不改变 Todo、WorkEntry、Summary、Room 或备份协议的业务语义。
+
+- Today：日期成为单一视觉锚点，状态文案改为“今天还有 X 项待办/今天的待办已完成”，概览压缩为一行完成数、进行中数和工作记录数。
+- Todo：减小未完成项的纵向留白，已完成和已取消项采用更紧凑的排版；非活跃项不再持续展示备注；拖动时才显示强调边框。
+- 快速添加：支持键盘 IME Done；有效输入时才执行添加，不使用成功 Snackbar 中断连续录入。
+- 已同步状态：从次要按钮感过强的“已同步记录”改为 48dp 可触达的轻量“查看记录”，包含唯一 TalkBack 描述和明确的打开中状态。
+- Work Editor：关联记录只滚动和高亮一次；高亮使用短时 tonal 边框，不闪烁、不阻止编辑。
+- History：时间线 Accent、内容背景和内边距进一步弱化，日期仍为锚点，摘要与统计保持次级。
+- Summary：生成状态使用固定尺寸局部进度；失败状态不再覆盖已有成功正文；隐私和计数信息使用统一弱化色。
+- Settings：继续复用统一 Action Row 和 Section 节奏，没有增加逐项卡片。
+- Data Management：运行状态、警告和错误统一为紧凑状态组件，长任务保持原页面结构，避免阶段切换时大幅跳动。
+- Dialog/Bottom Sheet：Todo 编辑、完成、迁移和删除入口改为互斥呈现，避免同一帧叠加多个浮层。
+
+## 交互反馈规范
+
+- 可点击入口保留 Material pressed/ripple 状态，禁用时降低强调度。
+- 导航和长任务在开始前同步锁定入口，完成、失败或返回后明确释放；不以任意固定延迟作为唯一防重手段。
+- 自动保存、排序和折叠不弹成功 Snackbar；复制、导出、恢复、删除撤销和同步成功继续使用可控反馈。
+- AI、Backup、Restore 的既有 busy 状态在协程启动前设置，避免同一帧连续点击创建多个任务。
+
+## “已同步记录”重复导航修复
+
+### 根因
+
+旧实现直接从 Todo 行的链接入口发起导航，没有入口级 in-flight 状态；路由也没有对同一日期和同一 ContentBlock 做目标幂等判断。快速点击会在首个目标进入返回栈前连续调用 `navigate()`，从而压入多个相同页面。一次性定位信息若由可重放状态承载，还可能在重组或进程重建后再次被消费。
+
+### 修复
+
+- `TodayTodoViewModel` 在发送事件前同步设置 `navigatingLinkedTodoId`，同一导航尚未结束时拒绝后续入口。
+- 导航事件使用无 replay 的 `Channel`；事件包含日期和 `linkedContentBlockId`，不包含 URI、路径或工作正文。
+- `WorkLogApp` 使用 `launchSingleTop`，并在导航前比较当前 route、日期和 linked block；相同目标直接忽略。
+- `TodayViewModel` 从 `SavedStateHandle` 一次读取并移除 linked block 参数，防止重组、旋转或进程恢复自动重复定位。
+- 目标 ContentBlock 存在时只滚动和高亮一次；不存在时显示受控提示。
+- 返回 Today 或导航失败后释放入口锁，用户可以再次正常打开。
+
+### 自动化覆盖
+
+- ViewModel 快速请求只产生一次导航事件，返回后可再次进入。
+- 路由生成、`launchSingleTop` 和相同目标判断。
+- linked block 存在、缺失和参数一次性消费。
+- Compose 入口禁用、唯一点击语义。
+- Android 真机集成测试连续激活 10 次，只进入一个目标；返回一次回到 Today；Activity 重建不自动重复导航。
+
+真机专项和全量 AndroidJUnitRunner 均已执行：连续激活 10 次只进入一个目标页面，一次返回回到 Today，Activity 重建没有自动重复导航；全量 60/60，failures/errors/skipped = 0。

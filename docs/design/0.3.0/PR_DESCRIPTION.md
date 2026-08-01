@@ -1,6 +1,6 @@
 ## 变更背景
 
-0.2.0 已完成待办、工作记录联动和发布验收，但用户实际使用后认为页面仍存在卡片嵌套、信息层级不清、深浅色质感不足和页面语言不统一的问题。本 PR 对 Compose UI 做系统性重构，不改变业务语义、Room Schema 或备份协议。
+本分支基于已发布并合入 `main` 的 0.3.0 UI 设计继续做 0.3.1-dev 定向精修，同时修复 Todo“已同步记录”连续点击产生重复页面的问题。原 Draft PR #1 已合并，因此本次通过新的 Draft PR 交付；不重写历史，不修改 0.3.0 Release Tag。
 
 ## 视觉方向
 
@@ -11,15 +11,23 @@
 
 ## 主要页面变化
 
-- App Shell：统一子页面 TopAppBar、背景和导航；顶级页面使用单一 Page Header，普通竖屏 NavigationBar，宽屏 NavigationRail。
-- Today/Todo：紧凑日期概览、局部优先级 Accent、明确四状态图标、轻量拖动反馈。
-- Editor：TEXT/IMAGE/TABLE 改为内容流和统一编辑容器。
-- History：日期锚点与轻量时间线，摘要和 Todo 统计降为次级信息。
-- Summary：阅读态优先，次要操作进入 Overflow，状态标签统一。
-- Settings：连续分组设置行，不再每项独立大卡片。
-- Data Management：统一导出/备份/恢复 Action Row 和结构化 Preview。
-- Empty/Loading/Error：使用统一状态组件。
-- 视觉验收微调：移除数据管理页重复标题、保证 1.5× 字体摘要完整换行，并将横屏 Today 内容限制为居中的 640dp 阅读宽度。
+- Today：日期与状态合并为单一视觉锚点，概览压缩为一行，减少顶部留白和重复标题。
+- Todo：提高列表密度，弱化完成/取消项与拖动装饰；快速添加支持 IME Done。
+- 已同步记录：改为轻量“查看记录”入口，打开期间禁用；同一目标在入口、事件和导航栈三层保证幂等。
+- Editor：linked ContentBlock 只滚动和高亮一次，缺失时显示受控提示。
+- History：继续弱化时间线与容器边界，保持日期锚点和可读摘要。
+- Summary：生成状态更稳定，失败提示不覆盖既有成功内容。
+- Settings：保持连续分组，不新增卡片墙。
+- Data Management：长任务状态、警告和错误使用统一紧凑反馈，页面结构不跳动。
+- Dialog/Bottom Sheet：Todo 相关浮层互斥，防止连续操作叠加。
+
+## 重复导航修复
+
+- 根因：入口没有同步 in-flight 状态，目标路由也没有比较当前日期和 linked block。
+- 入口：`TodayTodoViewModel` 在发送事件前同步锁定，返回、失败或定位完成后释放。
+- 事件：使用无 replay 的 `Channel`，不保存到 `SavedStateHandle`。
+- 路由：使用 `launchSingleTop`，相同 route、日期和 `linkedContentBlockId` 不再次入栈。
+- 定位：linked block 参数一次读取并移除；存在时只高亮一次，不存在时安全降级。
 
 ## 无障碍与响应式
 
@@ -31,14 +39,13 @@
 
 ## 测试结果
 
-- JVM/Robolectric：249/249，42 suites，failures/errors/skipped = 0。
+- JVM/Robolectric：254/254，42 suites，failures/errors/skipped = 0（原 249 项全部保留，新增 5 项）。
 - Android Test 源码：编译通过。
-- Debug 全量任务：assemble、lint、Detekt、ktlint 全部通过。
-- 全量任务使用 `--rerun-tasks --no-build-cache`。
-- Connected Android Test：58/58，failures/errors/skipped = 0。
-- HONOR Android 16 / API 36 应用日志：FATAL/ANR/OOM = 0。
-- 真机人工抽查 Today、History、Summary、Settings 和 Data Management；用户已确认视觉通过。
-- 37 张规范文件名的脱敏截图和本地 HTML 索引仅保存在 Git 忽略的构建目录。
+- Android Instrumentation：60/60，failures/errors/skipped = 0；原基线未减少，并新增 linked-record 真机集成方法。
+- assembleDebug、lintDebug、Detekt、ktlintCheck：全部通过。
+- 所有最终任务使用 `--rerun-tasks --no-build-cache`。
+- 真机专项覆盖连续激活 10 次、返回栈、重建和再次进入。
+- HONOR Android 16 / API 36 日志：FATAL/ANR/OOM = 0，重复导航 = 0。
 
 ## 数据与协议
 
@@ -59,3 +66,4 @@
 - `docs/design/0.3.0/UI_AUDIT.md`
 - `docs/design/0.3.0/UI_REDESIGN_REPORT.md`
 - `docs/design/0.3.0/VISUAL_ACCEPTANCE.md`
+- `docs/design/0.3.0/UX_FIXES.md`

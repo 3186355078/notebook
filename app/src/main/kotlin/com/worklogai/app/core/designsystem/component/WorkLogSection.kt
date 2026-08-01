@@ -16,12 +16,12 @@ fun WorkLogSection(
     title: String,
     modifier: Modifier = Modifier,
     description: String? = null,
-    contentPadding: PaddingValues = PaddingValues(WorkLogSpacing.large),
+    contentPadding: PaddingValues = PaddingValues(vertical = WorkLogSpacing.extraSmall),
     content: @Composable () -> Unit,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         description?.let {

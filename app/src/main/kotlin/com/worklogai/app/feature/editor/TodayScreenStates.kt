@@ -24,19 +24,23 @@ internal fun TodayHeader(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
         WorkLogPageHeader(
-            eyebrow = if (presentation.title == null) "今天" else "固定日期",
-            title = presentation.title ?: "${presentation.date.dayOfMonth}日",
+            eyebrow =
+                if (presentation.title == null) {
+                    val remaining = (presentation.todoCount - presentation.doneCount).coerceAtLeast(0)
+                    if (remaining == 0) "今天的待办已完成" else "今天还有 $remaining 项待办"
+                } else {
+                    "固定日期"
+                },
+            title = presentation.title ?: presentation.dateText,
             subtitle =
-                "${presentation.dateText} · 待办 ${presentation.doneCount}/${presentation.todoCount}" +
-                    " · 工作记录 ${presentation.blockCount} 条",
+                "完成 ${presentation.doneCount}/${presentation.todoCount} · " +
+                    "进行中 ${presentation.inProgressCount} · 工作记录 ${presentation.blockCount} 条",
             metrics = {
-                if (presentation.inProgressCount > 0) {
-                    WorkLogStatusChip(
-                        label = "进行中 ${presentation.inProgressCount}",
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    )
-                }
+                WorkLogStatusChip(
+                    label = if (presentation.todoCount == 0) "尚未安排" else "今日概览",
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             },
         )
         SaveStatusIndicator(saveState = saveState, onRetry = onRetrySave)
