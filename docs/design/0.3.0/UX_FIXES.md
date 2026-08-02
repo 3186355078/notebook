@@ -44,6 +44,14 @@ Todo 完成并同步为工作记录后，快速连续点击“已同步记录”
 
 Gradle connected 任务曾在 HONOR 系统安装确认阶段超时并显示 0 tests；这不是测试失败。手动确认官方 ADB 安装后，相同测试包由 AndroidJUnitRunner 完整执行 60 个方法并全部通过。
 
+### 0.3.1 签名 Release 复验
+
+- 使用与 0.3.0 相同证书的 0.3.1/code 4 APK 完成覆盖安装，Todo、工作记录、Summary、设置与 API Key“已配置”状态保留。
+- 在最终签名包中连续点击“查看记录”10 次，只出现一个工作记录页面；页面左上返回一次回到 Today，返回后可再次进入。
+- 横竖屏切换没有新增目标页；进程回收后只恢复原有单个编辑页，没有重放导航事件。
+- 删除 Todo08 的纯模拟关联 ContentBlock 后，Todo 保留、入口自动消失，另外两条有效关联不受影响。
+- Logcat 中 FATAL、ANR、OOM、Room integrity、SerializationException 和导航异常均为 0。
+
 ### 回归影响
 
 - Room version 保持 2。

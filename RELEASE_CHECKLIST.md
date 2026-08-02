@@ -7,9 +7,9 @@
 - [x] PR Base 为 `main`，Head 为 `feature/v0.3.0-ui-redesign`；未 force push、未自动删除分支。
 - [x] PR #2 merge commit：`87f194d38b3f07fa389eb9d00348f8ffd17010df`。
 - [x] `v0.1.0-internal`、`v0.2.0-internal`、`v0.3.0-internal` 未移动。
-- [ ] 0.3.1 最终 Release 提交已推送到远程 `main`。
-- [ ] `v0.3.1-internal` annotated Tag 指向最终 HEAD 并仅推送该 Tag。
-- [ ] 最终提交前工作区、Git 空白和敏感信息扫描通过。
+- [x] 0.3.1 最终 Release 提交已推送到远程 `main`。
+- [x] `v0.3.1-internal` annotated Tag 指向最终 HEAD 并仅推送该 Tag。
+- [x] 最终提交前工作区、Git 空白和敏感信息扫描通过。
 
 ## 版本与测试
 
@@ -18,9 +18,9 @@
 - [x] PR 合并前 Android 16 HONOR Debug Instrumentation：60/60，failures/errors/skipped 均为 0。
 - [x] Debug Lint、Detekt、ktlint 通过。
 - [x] main 版本转正后的 Debug 与 connected 全量回归通过：254/254 JVM，60/60 Instrumentation，failures/errors/skipped 均为 0。
-- [ ] Release Lint、R8 和资源压缩构建通过。
-- [ ] 0.3.0→0.3.1 覆盖安装、连续点击 10 次和最终 Release 核心冒烟通过。
-- [ ] 最终 HEAD 的签名构建通过；签名配置仅使用仓库外 Keystore 和当前交互进程环境。
+- [x] Release Lint、R8 和资源压缩构建通过。
+- [x] 0.3.0→0.3.1 覆盖安装、连续点击 10 次和 Release 核心冒烟通过。
+- [x] 最终 HEAD 的签名构建通过；签名配置仅使用仓库外 Keystore 和当前交互进程环境。
 
 ## 数据协议
 
@@ -36,9 +36,9 @@
 - [x] Release Keystore 位于仓库外，alias 为 `worklog-ai-release`，算法 RSA 4096。
 - [x] 证书 SHA-256：`15668D9F84061C17CF099A99FF84E1610113204F86311C1044454A30CFC3E801`。
 - [x] 用户已确认 Keystore 在可信位置安全备份。
-- [ ] APK v2/v3 签名、非 Debug 证书和 AAB `jarsigner` 验证通过。
-- [ ] 最终 HEAD 的 APK/AAB SHA-256 已记录在 Git 忽略目录的 `SHA256SUMS.txt` 和 `RELEASE_REPORT.txt`。
-- [ ] 最终 APK/AAB、SHA-256 和 R8 mapping 已归档到 Git 忽略目录且未进入 GitHub。
+- [x] APK v2/v3 签名、非 Debug 证书和 AAB `jarsigner` 验证通过。
+- [x] 最终 HEAD 的 APK/AAB SHA-256 已记录在 Git 忽略目录的 `SHA256SUMS.txt` 和 `RELEASE_REPORT.txt`。
+- [x] 最终 APK/AAB、SHA-256 和 R8 mapping 已归档到 Git 忽略目录且未进入 GitHub。
 
 ## Manifest 与安全
 
@@ -46,7 +46,7 @@
 - [x] `usesCleartextTraffic=false`、`allowBackup=false`。
 - [x] 应用源码主动声明仅 INTERNET、POST_NOTIFICATIONS；合并 Manifest 中仅保留 WorkManager 正常运行所需的依赖权限。
 - [x] 不含传统存储、全部文件、相机、位置、通讯录、电话或精确闹钟权限。
-- [ ] APK/AAB 不含 Debug 入口、受控 HTTP 地址、测试 Key、用户路径、测试备份或 `0.3.1-dev`。
+- [x] APK/AAB 不含 Debug 入口、受控 HTTP 地址、测试 Key、用户路径、测试备份或 `0.3.1-dev`。
 
 ## 发布材料
 
@@ -54,7 +54,7 @@
 - [x] CHANGELOG 与 INTERNAL_TESTING_GUIDE 已更新到 0.3.1。
 - [x] PRIVACY 已复核；本版本未改变数据、AI 或备份隐私边界。
 - [x] 最终 HEAD 的 SHA256SUMS 和 RELEASE_REPORT 已由封版脚本生成到 Git 忽略目录。
-- [ ] 0.3.1 Device Validation Report 已完成，且不含设备序列号、密钥或工作正文。
+- [x] 0.3.1 Device Validation Report 已完成，且不含设备序列号、密钥或工作正文。
 
 ## 风险接受
 

@@ -172,3 +172,5 @@
 真机专项和全量 AndroidJUnitRunner 均已执行：连续激活 10 次只进入一个目标页面，一次返回回到 Today，Activity 重建没有自动重复导航；全量 60/60，failures/errors/skipped = 0。
 
 PR #2 已于 2026-08-02 由 Draft 转为 Ready，并以普通 Merge Commit `87f194d38b3f07fa389eb9d00348f8ffd17010df` 合入 `main`。合并过程未 force push，未改动 Room Schema、Migration 或 Backup 协议。
+
+0.3.1 签名 Release 已在 HONOR Android 16 上完成同签名覆盖升级与导航专项：连续激活10次只进入一个目标，横竖屏和进程恢复不重复入栈，linked block 删除后入口安全解绑；稳定性日志为 FATAL/ANR/OOM = 0/0/0。
