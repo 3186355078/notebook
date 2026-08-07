@@ -11,9 +11,13 @@ import com.worklogai.app.core.database.failureValue
 import com.worklogai.app.core.database.successValue
 import com.worklogai.app.core.model.AttachmentDraft
 import com.worklogai.app.core.model.ContentBlock
+import com.worklogai.app.core.model.NewWorkContent
 import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.TableRow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -213,6 +217,113 @@ class OfflineWorkEntryRepositoryTest {
                     .blocks.size,
             )
             assertEquals(1, database.attachmentDao().getPathsByEntryId(entry.id).size)
+        }
+    }
+
+    @Test
+    fun `creating first text for a date atomically creates one entry and appends later content`() {
+        runBlocking {
+            assertNull(repository.getEntry(date).successValue())
+
+            val text = repository.createContentForDate(date, NewWorkContent.Text("补录接口联调")).successValue()
+            val table = repository.createContentForDate(date, NewWorkContent.Table(tableContent())).successValue()
+
+            assertEquals(text.entry.id, table.entry.id)
+            assertEquals(1, database.workEntryDao().getAllIncludingDeleted().size)
+            assertEquals(
+                listOf(ContentBlock.Text::class, ContentBlock.Table::class),
+                repository
+                    .getEntry(date)
+                    .successValue()!!
+                    .blocks
+                    .map { it::class },
+            )
+        }
+    }
+
+    @Test
+    fun `invalid first image leaves no work entry or content block`() {
+        runBlocking {
+            val result =
+                repository.createContentForDate(
+                    date,
+                    NewWorkContent.Image(
+                        AttachmentDraft(
+                            localPath = "",
+                            mimeType = "image/jpeg",
+                            fileSize = 128L,
+                        ),
+                    ),
+                )
+
+            assertEquals(
+                DataError.Validation(DataValidationReason.INVALID_ATTACHMENT),
+                result.failureValue(),
+            )
+            assertFalse(database.workEntryDao().existsByDateIncludingDeleted(date))
+            assertTrue(database.contentBlockDao().getAll().isEmpty())
+        }
+    }
+
+    @Test
+    fun `soft deleted date is restored when first new content is created`() {
+        runBlocking {
+            val original = repository.getOrCreateEntry(date).successValue()
+            repository.softDeleteEntry(original.id).successValue()
+
+            val created = repository.createContentForDate(date, NewWorkContent.Text("补录恢复")).successValue()
+
+            assertEquals(original.id, created.entry.id)
+            assertFalse(created.entry.isDeleted)
+            assertEquals("补录恢复", (created.block as ContentBlock.Text).content)
+            assertEquals(1, database.workEntryDao().getAllIncludingDeleted().size)
+        }
+    }
+
+    @Test
+    fun `first block insert failure rolls back newly created date entry`() {
+        val collisionRepository =
+            OfflineWorkEntryRepository(
+                database = database,
+                workEntryDao = database.workEntryDao(),
+                contentBlockDao = database.contentBlockDao(),
+                attachmentDao = database.attachmentDao(),
+                tableContentCodec = KotlinxTableContentCodec(),
+                idGenerator = SequenceIdGenerator(listOf("entry-one", "block", "entry-two", "block")),
+                timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
+                ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+            )
+        runBlocking {
+            collisionRepository
+                .createContentForDate(date, NewWorkContent.Text("first"))
+                .successValue()
+            val secondDate = date.plusDays(1)
+
+            assertEquals(
+                DataError.Conflict,
+                collisionRepository
+                    .createContentForDate(secondDate, NewWorkContent.Text("second"))
+                    .failureValue(),
+            )
+            assertFalse(database.workEntryDao().existsByDateIncludingDeleted(secondDate))
+            assertEquals(1, database.workEntryDao().getAllIncludingDeleted().size)
+        }
+    }
+
+    @Test
+    fun `concurrent first content requests still reuse one date entry`() {
+        runBlocking {
+            val results =
+                coroutineScope {
+                    listOf(
+                        async { repository.createContentForDate(date, NewWorkContent.Text("text")) },
+                        async { repository.createContentForDate(date, NewWorkContent.Table(tableContent())) },
+                    ).awaitAll()
+                }
+
+            assertTrue(results.all { it is com.worklogai.app.core.common.result.DataResult.Success })
+            assertEquals(1, database.workEntryDao().getAllIncludingDeleted().size)
+            assertEquals(2, repository.getEntry(date).successValue()!!.blocks.size)
         }
     }
 

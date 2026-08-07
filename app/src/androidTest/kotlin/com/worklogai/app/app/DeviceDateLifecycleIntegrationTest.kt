@@ -8,6 +8,7 @@ import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.common.time.SystemLocalDateProvider
 import com.worklogai.app.core.common.time.TimeProvider
 import com.worklogai.app.core.history.DefaultWorkPeriodCalculator
+import com.worklogai.app.core.workentry.CreateWorkContentForDateUseCase
 import com.worklogai.app.feature.editor.TextBlockUiModel
 import com.worklogai.app.feature.editor.TodayAction
 import com.worklogai.app.feature.editor.TodayViewModel
@@ -44,6 +45,10 @@ class DeviceDateLifecycleIntegrationTest {
                     onMain {
                         TodayViewModel(
                             dependencies.workEntryRepository(),
+                            CreateWorkContentForDateUseCase(
+                                dependencies.workEntryRepository(),
+                                SystemLocalDateProvider(),
+                            ),
                             dependencies.attachmentFileStore(),
                             dependencies.tableContentEditor(),
                             clock,
@@ -87,6 +92,10 @@ class DeviceDateLifecycleIntegrationTest {
                     onMain {
                         TodayViewModel(
                             dependencies.workEntryRepository(),
+                            CreateWorkContentForDateUseCase(
+                                dependencies.workEntryRepository(),
+                                SystemLocalDateProvider(),
+                            ),
                             dependencies.attachmentFileStore(),
                             dependencies.tableContentEditor(),
                             clock,

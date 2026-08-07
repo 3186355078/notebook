@@ -184,6 +184,40 @@ class TodayScreenContentTest {
         assertTrue(contentBounds.right - contentBounds.left <= 640.dp)
     }
 
+    @Test
+    fun missingHistoricalDateShowsLegalEmptyEditorAndAllContentActions() {
+        val actions = mutableListOf<TodayAction>()
+        var imagePickerCalls = 0
+
+        composeRule.setContent {
+            WorkLogTheme {
+                TodayScreenContent(
+                    state =
+                        TodayUiState(
+                            date = LocalDate.of(2026, 7, 8),
+                            followsCurrentDate = false,
+                            isLoading = false,
+                            entryId = null,
+                        ),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    onAction = actions::add,
+                    onPickImage = { imagePickerCalls++ },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("历史记录").assertIsDisplayed()
+        composeRule.onNodeWithText("这一天还没有工作记录").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("补充当天做过的事情吧").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("添加文字").performClick()
+        composeRule.onNodeWithContentDescription("添加图片").performClick()
+        composeRule.onNodeWithContentDescription("添加表格").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf(TodayAction.AddTextBlock, TodayAction.AddTableBlock), actions)
+            assertEquals(1, imagePickerCalls)
+        }
+    }
+
     private fun stateWith(vararg blocks: EditorBlockUiModel): TodayUiState =
         TodayUiState(
             date = LocalDate.of(2026, 7, 12),
