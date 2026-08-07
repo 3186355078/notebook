@@ -39,14 +39,18 @@ android {
         applicationId = "com.worklogai.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.4.0-dev"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
+        debug {
+            // Keep development and device-test data isolated from the signed internal release installation.
+            applicationIdSuffix = ".debug"
+        }
         if (hasReleaseSigning) {
             signingConfigs.create("release") {
                 storeFile = file(requireNotNull(releaseSigningValues["WORKLOG_RELEASE_STORE_FILE"]))

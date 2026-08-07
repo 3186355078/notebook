@@ -30,6 +30,7 @@ private const val HISTORY_PAGE_SIZE = 30
 private const val SEARCH_DEBOUNCE_MILLIS = 300L
 
 @HiltViewModel
+@Suppress("TooManyFunctions")
 class HistoryViewModel
     @Inject
     constructor(
@@ -38,9 +39,8 @@ class HistoryViewModel
         private val timeProvider: TimeProvider,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val today = timeProvider.today()
         private val initialDate =
-            savedStateHandle.get<String>(SELECTED_HISTORY_DATE_KEY)?.toLocalDateOrNull() ?: today
+            savedStateHandle.get<String>(SELECTED_HISTORY_DATE_KEY)?.toLocalDateOrNull() ?: currentDate()
         private val initialWeekStart = workPeriodCalculator.weekContaining(initialDate).start
         private val _uiState =
             MutableStateFlow(
@@ -71,6 +71,7 @@ class HistoryViewModel
                 HistoryAction.LoadMore -> loadMore()
                 HistoryAction.NextPeriod -> navigatePeriod(forward = true)
                 is HistoryAction.OpenEntry -> openEntry(action.date)
+                is HistoryAction.OpenBackfill -> openBackfill(action.date)
                 HistoryAction.PreviousPeriod -> navigatePeriod(forward = false)
                 HistoryAction.Refresh,
                 HistoryAction.Retry,
@@ -123,7 +124,7 @@ class HistoryViewModel
                     HistoryMode.WEEK -> state.selectedWeekStart.plusWeeks(if (forward) 1 else -1)
                     HistoryMode.MONTH -> state.selectedMonth.plusMonths(if (forward) 1 else -1).atDay(1)
                 }
-            if (forward && next > today) return
+            if (forward && next > currentDate()) return
             _uiState.update {
                 when (state.mode) {
                     HistoryMode.DAY -> it.copy(selectedDate = next, errorMessage = null)
@@ -137,6 +138,7 @@ class HistoryViewModel
 
         private fun returnToCurrentPeriod() {
             if (_uiState.value.mode == HistoryMode.RECENT) return
+            val today = currentDate()
             val currentWeekStart = workPeriodCalculator.weekContaining(today).start
             _uiState.update {
                 when (it.mode) {
@@ -217,6 +219,20 @@ class HistoryViewModel
         private fun openEntry(date: LocalDate) {
             _events.trySend(HistoryUiEvent.OpenEditor(date))
         }
+
+        private fun openBackfill(date: LocalDate) {
+            if (date > currentDate()) {
+                showFutureDateMessage()
+                return
+            }
+            _events.trySend(HistoryUiEvent.OpenEditor(date))
+        }
+
+        private fun showFutureDateMessage() {
+            _events.trySend(HistoryUiEvent.ShowMessage("只能补充今天或更早的工作记录"))
+        }
+
+        private fun currentDate(): LocalDate = timeProvider.today()
     }
 
 private data class QueryResult(

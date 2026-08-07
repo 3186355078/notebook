@@ -10,10 +10,13 @@ import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.common.time.TimeProvider
 import com.worklogai.app.core.model.AttachmentDraft
 import com.worklogai.app.core.model.ContentBlock
+import com.worklogai.app.core.model.CreatedWorkContent
+import com.worklogai.app.core.model.NewWorkContent
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.WorkEntry
 import com.worklogai.app.core.repository.WorkEntryRepository
 import com.worklogai.app.core.table.TableContentEditor
+import com.worklogai.app.core.workentry.CreateWorkContentForDateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -34,14 +37,16 @@ import kotlin.coroutines.coroutineContext
 private const val SELECTED_DATE_KEY = "today.selected_date"
 private const val TEXT_SAVE_DEBOUNCE_MILLIS = 600L
 private const val SAVE_FAILED_MESSAGE = "保存失败，内容仍保留在当前页面"
+private const val PENDING_TEXT_BLOCK_PREFIX = "pending-history-text-"
 
 // One date-scoped editor owns its drafts, serial saves, and lifecycle flush boundary.
-@Suppress("TooManyFunctions", "LargeClass")
+@Suppress("TooManyFunctions", "LargeClass", "ReturnCount")
 @HiltViewModel
 class TodayViewModel
     @Inject
     constructor(
         private val workEntryRepository: WorkEntryRepository,
+        private val createWorkContentForDate: CreateWorkContentForDateUseCase,
         private val attachmentFileStore: AttachmentFileStore,
         private val tableContentEditor: TableContentEditor,
         private val timeProvider: TimeProvider,
@@ -64,9 +69,11 @@ class TodayViewModel
         private val waitingSaveKeys = mutableSetOf<DraftKey>()
         private val savingKeys = mutableSetOf<DraftKey>()
         private val failedSaveKeys = mutableSetOf<DraftKey>()
+        private val pendingTextBlockIds = linkedSetOf<String>()
         private val lastSavedAtByDate = mutableMapOf<LocalDate, Instant>()
         private var observationJob: Job? = null
         private var dateSwitchJob: Job? = null
+        private var pendingTextSequence = 0L
 
         val uiState = _uiState.asStateFlow()
         val events = _events.receiveAsFlow()
@@ -140,7 +147,13 @@ class TodayViewModel
             _uiState.value = TodayUiState(date = date, followsCurrentDate = followsCurrentDate)
             observationJob =
                 viewModelScope.launch {
-                    when (val result = workEntryRepository.getOrCreateEntry(date)) {
+                    val initialResult =
+                        if (followsCurrentDate) {
+                            workEntryRepository.getOrCreateEntry(date)
+                        } else {
+                            workEntryRepository.getEntry(date)
+                        }
+                    when (val result = initialResult) {
                         is DataResult.Failure -> showLoadFailure(date)
                         is DataResult.Success -> {
                             entriesByDate[date] = result.value
@@ -187,18 +200,25 @@ class TodayViewModel
 
         private fun addTextBlock() {
             val date = _uiState.value.date
-            val entryId = _uiState.value.entryId ?: return
             if (_uiState.value.isStructureOperationInProgress) return
+
+            if (_uiState.value.entryId == null) {
+                val blockId = "$PENDING_TEXT_BLOCK_PREFIX${++pendingTextSequence}"
+                val key = DraftKey(date, blockId)
+                pendingTextBlockIds += blockId
+                drafts[key] = TextDraft(text = "", version = 0)
+                refreshUi(date)
+                updateStateForDate(date) { copy(focusedBlockId = blockId) }
+                return
+            }
 
             viewModelScope.launch {
                 updateStateForDate(date) { copy(isStructureOperationInProgress = true, errorMessage = null) }
-                when (val result = workEntryRepository.addTextBlock(entryId)) {
+                when (val result = createWorkContentForDate(date, NewWorkContent.Text(""))) {
                     is DataResult.Failure -> emitMessage("无法添加记录，请重试")
                     is DataResult.Success -> {
-                        updateEntry(date) { entry ->
-                            entry.copy(blocks = entry.blocks + result.value)
-                        }
-                        updateStateForDate(date) { copy(focusedBlockId = result.value.id) }
+                        entriesByDate[date] = result.value.entry
+                        updateStateForDate(date) { copy(focusedBlockId = result.value.block.id) }
                     }
                 }
                 updateStateForDate(date) { copy(isStructureOperationInProgress = false) }
@@ -208,19 +228,18 @@ class TodayViewModel
 
         private fun addTableBlock() {
             val date = _uiState.value.date
-            val entryId = _uiState.value.entryId ?: return
             if (_uiState.value.isStructureOperationInProgress) return
             viewModelScope.launch {
                 updateStateForDate(date) { copy(isStructureOperationInProgress = true, errorMessage = null) }
-                when (val result = workEntryRepository.addTableBlock(entryId, tableContentEditor.createDefault())) {
+                when (
+                    val result =
+                        createWorkContentForDate(
+                            date,
+                            NewWorkContent.Table(tableContentEditor.createDefault()),
+                        )
+                ) {
                     is DataResult.Failure -> emitMessage("无法创建表格")
-                    is DataResult.Success ->
-                        updateEntry(date) { entry ->
-                            entry.copy(
-                                blocks =
-                                    entry.blocks + result.value,
-                            )
-                        }
+                    is DataResult.Success -> entriesByDate[date] = result.value.entry
                 }
                 updateStateForDate(date) { copy(isStructureOperationInProgress = false) }
                 refreshUi(date)
@@ -229,7 +248,6 @@ class TodayViewModel
 
         private fun importImage(uri: android.net.Uri) {
             val date = _uiState.value.date
-            val entryId = _uiState.value.entryId ?: return
             if (_uiState.value.isImageImporting) return
             viewModelScope.launch {
                 updateStateForDate(date) { copy(isImageImporting = true, errorMessage = null) }
@@ -238,14 +256,16 @@ class TodayViewModel
                     onSuccess = { image ->
                         when (
                             val result =
-                                workEntryRepository.addImageBlock(
-                                    entryId,
-                                    AttachmentDraft(
-                                        localPath = image.relativePath,
-                                        mimeType = image.mimeType,
-                                        fileSize = image.fileSize,
-                                        width = image.width,
-                                        height = image.height,
+                                createWorkContentForDate(
+                                    date,
+                                    NewWorkContent.Image(
+                                        AttachmentDraft(
+                                            localPath = image.relativePath,
+                                            mimeType = image.mimeType,
+                                            fileSize = image.fileSize,
+                                            width = image.width,
+                                            height = image.height,
+                                        ),
                                     ),
                                 )
                         ) {
@@ -253,13 +273,7 @@ class TodayViewModel
                                 attachmentFileStore.delete(image.relativePath)
                                 emitMessage("图片未能保存")
                             }
-                            is DataResult.Success ->
-                                updateEntry(date) { entry ->
-                                    entry.copy(
-                                        blocks =
-                                            entry.blocks + result.value,
-                                    )
-                                }
+                            is DataResult.Success -> entriesByDate[date] = result.value.entry
                         }
                     },
                     onFailure = { emitMessage("图片处理失败，请重试") },
@@ -317,19 +331,25 @@ class TodayViewModel
             text: String,
         ) {
             val date = _uiState.value.date
-            if (entryFor(date)?.blocks?.any { it.id == blockId && it is ContentBlock.Text } != true) return
+            val isPersisted = entryFor(date)?.blocks?.any { it.id == blockId && it is ContentBlock.Text } == true
+            if (!isPersisted && blockId !in pendingTextBlockIds) return
 
             val key = DraftKey(date, blockId)
             drafts[key] = TextDraft(text = text, version = (drafts[key]?.version ?: 0) + 1)
             failedSaveKeys.remove(key)
             refreshUi(date)
-            scheduleDebouncedSave(key)
+            if (blockId in pendingTextBlockIds && text.isBlank()) {
+                if (key in waitingSaveKeys) saveJobs[key]?.cancel()
+                waitingSaveKeys -= key
+            } else {
+                scheduleDebouncedSave(key)
+            }
         }
 
         private fun scheduleDebouncedSave(key: DraftKey) {
             val existing = saveJobs[key]
             when {
-                existing == null -> startSaveWorker(key, withDebounce = true)
+                existing == null || !existing.isActive -> startSaveWorker(key, withDebounce = true)
                 key in waitingSaveKeys -> {
                     existing.cancel()
                     startSaveWorker(key, withDebounce = true)
@@ -377,6 +397,7 @@ class TodayViewModel
             key: DraftKey,
             draft: TextDraft,
         ): Boolean {
+            if (key.blockId in pendingTextBlockIds) return savePendingTextDraftVersion(key, draft)
             savingKeys += key
             refreshUi(key.date)
             return when (val result = workEntryRepository.updateTextBlock(key.blockId, draft.text)) {
@@ -402,6 +423,69 @@ class TodayViewModel
                     }
                 }
             }
+        }
+
+        private suspend fun savePendingTextDraftVersion(
+            key: DraftKey,
+            draft: TextDraft,
+        ): Boolean {
+            if (draft.text.isBlank()) {
+                removePendingText(key)
+                refreshUi(key.date)
+                return false
+            }
+            savingKeys += key
+            refreshUi(key.date)
+            return when (val result = createWorkContentForDate(key.date, NewWorkContent.Text(draft.text))) {
+                is DataResult.Failure -> {
+                    savingKeys -= key
+                    failedSaveKeys += key
+                    refreshUi(key.date)
+                    emitMessage(SAVE_FAILED_MESSAGE)
+                    false
+                }
+                is DataResult.Success -> completePendingTextCreation(key, draft, result.value)
+            }
+        }
+
+        private fun completePendingTextCreation(
+            pendingKey: DraftKey,
+            savedDraft: TextDraft,
+            created: CreatedWorkContent,
+        ): Boolean {
+            val createdBlock = created.block as? ContentBlock.Text
+            if (createdBlock == null) {
+                savingKeys -= pendingKey
+                failedSaveKeys += pendingKey
+                emitMessage(SAVE_FAILED_MESSAGE)
+                return false
+            }
+            val latestDraft = drafts[pendingKey]
+            entriesByDate[pendingKey.date] = created.entry
+            pendingTextBlockIds -= pendingKey.blockId
+            drafts.remove(pendingKey)
+            savingKeys -= pendingKey
+            failedSaveKeys -= pendingKey
+            updateStateForDate(pendingKey.date) {
+                copy(focusedBlockId = if (focusedBlockId == pendingKey.blockId) createdBlock.id else focusedBlockId)
+            }
+            if (latestDraft != null && latestDraft.version != savedDraft.version) {
+                val persistedKey = DraftKey(pendingKey.date, createdBlock.id)
+                drafts[persistedKey] = latestDraft
+                startSaveWorker(persistedKey, withDebounce = false)
+            } else {
+                lastSavedAtByDate[pendingKey.date] = timeProvider.now()
+            }
+            refreshUi(pendingKey.date)
+            return false
+        }
+
+        private fun removePendingText(key: DraftKey) {
+            pendingTextBlockIds -= key.blockId
+            drafts.remove(key)
+            waitingSaveKeys -= key
+            savingKeys -= key
+            failedSaveKeys -= key
         }
 
         private suspend fun saveTableDraftVersion(
@@ -634,6 +718,15 @@ class TodayViewModel
 
         private fun deleteBlock(blockId: String) {
             val date = _uiState.value.date
+            if (blockId in pendingTextBlockIds) {
+                val key = DraftKey(date, blockId)
+                saveJobs[key]?.cancel()
+                saveJobs.remove(key)
+                removePendingText(key)
+                updateState { copy(pendingDeleteBlockId = null, focusedBlockId = null) }
+                refreshUi(date)
+                return
+            }
             val entry = entryFor(date) ?: return
             if (_uiState.value.isStructureOperationInProgress) return
 
@@ -704,13 +797,32 @@ class TodayViewModel
         ) {
             if (_uiState.value.date != date) return
             val entry = entryFor(date)
-            val blocks =
+            val persistedBlocks =
                 entry
                     ?.blocks
                     ?.sortedBy(ContentBlock::order)
                     ?.map { it.toUiModel(date) }
                     .orEmpty()
-            val currentDraftKeys = draftKeys().filter { it.date == date }
+            val pendingBlocks =
+                pendingTextBlockIds.mapIndexedNotNull { index, blockId ->
+                    val key = DraftKey(date, blockId)
+                    drafts[key]?.let { draft ->
+                        TextBlockUiModel(
+                            id = blockId,
+                            order = persistedBlocks.size + index,
+                            text = draft.text,
+                            isSaving = key in savingKeys || key in waitingSaveKeys,
+                            hasSaveError = key in failedSaveKeys,
+                            isPending = true,
+                        )
+                    }
+                }
+            val blocks = persistedBlocks + pendingBlocks
+            val currentDraftKeys =
+                draftKeys().filter { key ->
+                    key.date == date &&
+                        !(key.blockId in pendingTextBlockIds && drafts[key]?.text.isNullOrBlank())
+                }
             val saveState =
                 when {
                     failedSaveKeys.any { it.date == date } -> SaveState.Failed(SAVE_FAILED_MESSAGE)
