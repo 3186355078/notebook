@@ -12,7 +12,9 @@ import com.worklogai.app.core.datastore.AiSettingsRepository
 import com.worklogai.app.core.security.SecretStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -29,6 +31,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.URI
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
@@ -48,6 +51,7 @@ class DefaultAiHttpClientFactory
                 .connectTimeout(timeoutSeconds.toLong(), TimeUnit.SECONDS)
                 .readTimeout(timeoutSeconds.toLong(), TimeUnit.SECONDS)
                 .writeTimeout(timeoutSeconds.toLong(), TimeUnit.SECONDS)
+                .callTimeout(timeoutSeconds.toLong(), TimeUnit.SECONDS)
                 .build()
     }
 
@@ -101,13 +105,15 @@ class OpenAiCompatibleSummaryProvider internal constructor(
         timeoutSeconds: Int,
         resolved: ResolvedRequest,
     ): Call {
+        val requestBody =
+            requestPayload(resolved.request, resolved.isOfficialDeepSeek).toRequestBody(JSON_MEDIA_TYPE)
         val httpRequest =
             Request
                 .Builder()
                 .url(resolved.endpoint)
                 .header("Authorization", "Bearer ${resolved.apiKey}")
                 .header("Content-Type", "application/json")
-                .post(requestPayload(resolved.request).toRequestBody(JSON_MEDIA_TYPE))
+                .post(requestBody)
                 .build()
         return httpClientFactory.create(timeoutSeconds).newCall(httpRequest)
     }
@@ -124,7 +130,15 @@ class OpenAiCompatibleSummaryProvider internal constructor(
         } else if (apiKey == null || model.isEmpty()) {
             Result.failure(AiProviderException(AiProviderError.MissingConfiguration))
         } else {
-            Result.success(ResolvedRequest(endpoint, apiKey, model, request.copy(model = model)))
+            Result.success(
+                ResolvedRequest(
+                    endpoint = endpoint,
+                    apiKey = apiKey,
+                    model = model,
+                    request = request.copy(model = model),
+                    isOfficialDeepSeek = URI(endpoint).host.equals(DEEPSEEK_API_HOST, ignoreCase = true),
+                ),
+            )
         }
     }
 
@@ -132,46 +146,51 @@ class OpenAiCompatibleSummaryProvider internal constructor(
         call: Call,
         fallbackModel: String,
     ): Result<AiSummaryResponse> =
-        awaitResponse(call).useResult { response ->
-            val requestId = response.header("x-request-id")
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                return@useResult Result.failure(
-                    AiProviderException(response.toProviderError(body)),
+        withContext(Dispatchers.IO) {
+            awaitResponse(call).useResult { response ->
+                val requestId = response.header("x-request-id")
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    return@useResult Result.failure(
+                        AiProviderException(response.toProviderError(body)),
+                    )
+                }
+                val root =
+                    runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
+                        ?: return@useResult Result.failure(AiProviderException(AiProviderError.EmptyResponse))
+                val content =
+                    root["choices"]
+                        ?.jsonArrayOrNull()
+                        ?.firstOrNull()
+                        ?.jsonObject
+                        ?.get("message")
+                        ?.jsonObject
+                        ?.get("content")
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        ?.trim()
+                        .orEmpty()
+                if (content.isEmpty()) {
+                    return@useResult Result.failure(
+                        AiProviderException(AiProviderError.EmptyResponse),
+                    )
+                }
+                Result.success(
+                    AiSummaryResponse(
+                        content = content,
+                        providerId = providerId,
+                        model = root["model"]?.jsonPrimitive?.contentOrNull ?: fallbackModel,
+                        requestId = requestId,
+                        usage = root["usage"]?.jsonObjectOrNull()?.toUsage(),
+                    ),
                 )
             }
-            val root =
-                runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
-                    ?: return@useResult Result.failure(AiProviderException(AiProviderError.EmptyResponse))
-            val content =
-                root["choices"]
-                    ?.jsonArrayOrNull()
-                    ?.firstOrNull()
-                    ?.jsonObject
-                    ?.get("message")
-                    ?.jsonObject
-                    ?.get("content")
-                    ?.jsonPrimitive
-                    ?.contentOrNull
-                    ?.trim()
-                    .orEmpty()
-            if (content.isEmpty()) {
-                return@useResult Result.failure(
-                    AiProviderException(AiProviderError.EmptyResponse),
-                )
-            }
-            Result.success(
-                AiSummaryResponse(
-                    content = content,
-                    providerId = providerId,
-                    model = root["model"]?.jsonPrimitive?.contentOrNull ?: fallbackModel,
-                    requestId = requestId,
-                    usage = root["usage"]?.jsonObjectOrNull()?.toUsage(),
-                ),
-            )
         }
 
-    private fun requestPayload(request: AiSummaryRequest): String =
+    private fun requestPayload(
+        request: AiSummaryRequest,
+        isOfficialDeepSeek: Boolean,
+    ): String =
         json.encodeToString(
             kotlinx.serialization.json.JsonObject
                 .serializer(),
@@ -201,6 +220,14 @@ class OpenAiCompatibleSummaryProvider internal constructor(
                         buildJsonObject { put("type", kotlinx.serialization.json.JsonPrimitive("json_object")) },
                     )
                 }
+                put("stream", kotlinx.serialization.json.JsonPrimitive(false))
+                if (isOfficialDeepSeek) {
+                    put(
+                        "thinking",
+                        buildJsonObject { put("type", kotlinx.serialization.json.JsonPrimitive("disabled")) },
+                    )
+                    put("max_tokens", kotlinx.serialization.json.JsonPrimitive(DEEPSEEK_SUMMARY_MAX_TOKENS))
+                }
             },
         )
 }
@@ -210,6 +237,7 @@ private data class ResolvedRequest(
     val apiKey: String,
     val model: String,
     val request: AiSummaryRequest,
+    val isOfficialDeepSeek: Boolean,
 )
 
 private suspend fun awaitResponse(call: Call): Response =
@@ -261,7 +289,7 @@ private fun ApplicationInfo.isDebuggable(): Boolean = flags and ApplicationInfo.
 
 private fun IOException.toProviderError(): AiProviderError =
     when (this) {
-        is java.net.SocketTimeoutException -> AiProviderError.Timeout
+        is InterruptedIOException -> AiProviderError.Timeout
         is UnknownHostException -> AiProviderError.NetworkUnavailable
         else -> AiProviderError.NetworkUnavailable
     }
@@ -310,3 +338,5 @@ private const val HTTP_REQUEST_TIMEOUT = 408
 private const val HTTP_TOO_MANY_REQUESTS = 429
 private const val HTTP_SERVER_ERROR_START = 500
 private const val HTTP_SERVER_ERROR_END = 599
+private const val DEEPSEEK_API_HOST = "api.deepseek.com"
+private const val DEEPSEEK_SUMMARY_MAX_TOKENS = 8_192

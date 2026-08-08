@@ -27,9 +27,11 @@ import com.worklogai.app.core.model.WorkEntry
 import com.worklogai.app.core.model.WorkSummary
 import com.worklogai.app.core.repository.WorkEntryRepository
 import com.worklogai.app.core.repository.WorkSummaryRepository
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -187,17 +189,40 @@ class GenerateWorkSummaryUseCaseTest {
             assertEquals(2, provider.calls)
         }
 
+    @Test
+    fun `configured timeout bounds the complete generation and marks it retryable`() =
+        runTest {
+            val summaryRepository = FakeSummaryRepository()
+            val result =
+                createUseCase(
+                    entryRepository = FakeEntryRepository(listOf(entry(allowAi = true))),
+                    summaryRepository = summaryRepository,
+                    provider = NeverCompletesProvider(),
+                    settings = AiSettings(useMockProvider = false, model = "slow-model", timeoutSeconds = 1),
+                )(SummaryType.WEEKLY, range())
+
+            assertTrue(result is GenerateWorkSummaryResult.Failure)
+            assertTrue((result as GenerateWorkSummaryResult.Failure).retryable)
+            assertEquals(
+                SummaryStatus.FAILED,
+                summaryRepository.values.values
+                    .single()
+                    .status,
+            )
+        }
+
     private fun createUseCase(
         entryRepository: WorkEntryRepository,
         summaryRepository: WorkSummaryRepository,
         provider: AiSummaryProvider,
+        settings: AiSettings = AiSettings(useMockProvider = true, model = "mock"),
     ): GenerateWorkSummaryUseCase =
         GenerateWorkSummaryUseCase(
             workSummaryRepository = summaryRepository,
             summaryGenerationPreparer =
                 SummaryGenerationPreparer(
                     workEntryRepository = entryRepository,
-                    aiSettingsRepository = FakeSettingsRepository(),
+                    aiSettingsRepository = FakeSettingsRepository(settings),
                     workSummarySkill = createSkill(),
                 ),
             modelSummaryGenerator =
@@ -257,13 +282,22 @@ private class FailOnceProvider : AiSummaryProvider {
     }
 }
 
-private class FakeSettingsRepository : AiSettingsRepository {
-    private val value = AiSettings(useMockProvider = true, model = "mock")
+private class FakeSettingsRepository(
+    private val value: AiSettings,
+) : AiSettingsRepository {
     override val settings: Flow<AiSettings> = flowOf(value)
 
     override suspend fun getSettings(): AiSettings = value
 
     override suspend fun saveSettings(settings: AiSettings): Result<Unit> = Result.success(Unit)
+}
+
+private class NeverCompletesProvider : AiSummaryProvider {
+    override val providerId: String = "never-completes"
+
+    override suspend fun generateSummary(
+        request: com.worklogai.app.ai.model.AiSummaryRequest,
+    ): Result<AiSummaryResponse> = awaitCancellation()
 }
 
 private class FakeEntryRepository(

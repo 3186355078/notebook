@@ -12,21 +12,38 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
+import okio.BufferedSource
+import okio.ForwardingSource
+import okio.buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.Proxy
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
 class AiSummaryProviderTest {
+    @Test
+    fun `default client applies timeout to the complete call`() {
+        val client = DefaultAiHttpClientFactory().create(17)
+
+        assertEquals(17_000, client.callTimeoutMillis)
+        assertEquals(17_000, client.connectTimeoutMillis)
+        assertEquals(17_000, client.readTimeoutMillis)
+        assertEquals(17_000, client.writeTimeoutMillis)
+    }
+
     @Test
     fun `mock provider is deterministic and returns structured json`() =
         runBlocking {
@@ -95,6 +112,47 @@ class AiSummaryProviderTest {
             assertEquals("application/json", httpRequest.header("Content-Type"))
             val body = Buffer().also { buffer -> httpRequest.body!!.writeTo(buffer) }.readUtf8()
             assertTrue(body.contains("\"response_format\":{\"type\":\"json_object\"}"))
+            assertTrue(body.contains("\"stream\":false"))
+            assertFalse(body.contains("\"thinking\""))
+        }
+
+    @Test
+    fun `official deepseek request disables thinking and bounds summary output`() =
+        runBlocking {
+            val recorded = AtomicReference<Request>()
+            val provider =
+                OpenAiCompatibleSummaryProvider(
+                    settingsRepository =
+                        FakeAiSettingsRepository(
+                            AiSettings(
+                                baseUrl = "https://api.deepseek.com",
+                                model = "deepseek-v4-flash",
+                                useMockProvider = false,
+                            ),
+                        ),
+                    secretStore = FakeSecretStore("test-secret"),
+                    httpClientFactory = InterceptingHttpClientFactory(recorded),
+                )
+
+            val result = provider.generateSummary(request("{}"))
+            val body = Buffer().also { buffer -> recorded.get().body!!.writeTo(buffer) }.readUtf8()
+
+            assertTrue(result.isSuccess)
+            assertTrue(body.contains("\"thinking\":{\"type\":\"disabled\"}"))
+            assertTrue(body.contains("\"max_tokens\":8192"))
+            assertTrue(body.contains("\"stream\":false"))
+        }
+
+    @Test
+    fun `response body is consumed away from the caller thread`() =
+        runBlocking {
+            val callerThread = Thread.currentThread().name
+            val bodyReadThread = AtomicReference<String>()
+            val result = provider(ThreadRecordingHttpClientFactory(bodyReadThread)).generateSummary(request("{}"))
+
+            assertTrue(result.isSuccess)
+            assertTrue(bodyReadThread.get().isNotBlank())
+            assertFalse(bodyReadThread.get() == callerThread)
         }
 
     @Test
@@ -166,6 +224,23 @@ class AiSummaryProviderTest {
             assertFalse(error.message.orEmpty().contains("non-sensitive-test-input"))
         }
 
+    @Test
+    fun `openai compatible provider maps complete call timeout`() =
+        runBlocking {
+            val result =
+                provider(
+                    InterceptingHttpClientFactory(
+                        recorded = AtomicReference(),
+                        failure = InterruptedIOException("timeout"),
+                    ),
+                ).generateSummary(request("non-sensitive-test-input"))
+
+            assertEquals(
+                AiProviderError.Timeout,
+                (result.exceptionOrNull() as AiProviderException).providerError,
+            )
+        }
+
     private fun provider(httpClientFactory: AiHttpClientFactory) =
         OpenAiCompatibleSummaryProvider(
             settingsRepository =
@@ -190,7 +265,7 @@ private class InterceptingHttpClientFactory(
     private val statusCode: Int = 200,
     private val responseBody: String =
         """{"model":"test-model","choices":[{"message":{"content":"{\"title\":\"summary\"}"}}]}""",
-    private val failure: SocketTimeoutException? = null,
+    private val failure: IOException? = null,
 ) : AiHttpClientFactory {
     override fun create(timeoutSeconds: Int): OkHttpClient =
         OkHttpClient
@@ -223,6 +298,49 @@ private class InterceptingHttpClientFactory(
                             .toResponseBody(),
                     ).build()
             }.build()
+}
+
+private class ThreadRecordingHttpClientFactory(
+    private val bodyReadThread: AtomicReference<String>,
+) : AiHttpClientFactory {
+    override fun create(timeoutSeconds: Int): OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .proxy(Proxy.NO_PROXY)
+            .addInterceptor { chain ->
+                Response
+                    .Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("test response")
+                    .body(ThreadRecordingResponseBody(bodyReadThread))
+                    .build()
+            }.build()
+}
+
+private class ThreadRecordingResponseBody(
+    private val bodyReadThread: AtomicReference<String>,
+) : ResponseBody() {
+    private val content =
+        """{"model":"test-model","choices":[{"message":{"content":"{\"title\":\"summary\"}"}}]}"""
+
+    override fun contentType(): MediaType? = null
+
+    override fun contentLength(): Long = content.toByteArray().size.toLong()
+
+    override fun source(): BufferedSource {
+        val source = Buffer().writeUtf8(content)
+        return object : ForwardingSource(source) {
+            override fun read(
+                sink: Buffer,
+                byteCount: Long,
+            ): Long {
+                bodyReadThread.compareAndSet(null, Thread.currentThread().name)
+                return super.read(sink, byteCount)
+            }
+        }.buffer()
+    }
 }
 
 private class FakeAiSettingsRepository(
