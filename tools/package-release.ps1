@@ -1,14 +1,14 @@
 param(
-    [string]$Version = "0.3.1",
-    [int]$VersionCode = 4,
+    [string]$Version = "0.4.0",
+    [int]$VersionCode = 5,
     [string]$CertificateSha256 = "15668D9F84061C17CF099A99FF84E1610113204F86311C1044454A30CFC3E801",
     [string]$SdkRoot = "D:\SDK",
-    [int]$InstrumentationTests = 60,
+    [int]$InstrumentationTests = 65,
     [int]$RoomVersion = 2,
     [int]$BackupFormatVersion = 2,
     [string]$SchemaSha256 = "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D",
-    [int]$PullRequestNumber = 2,
-    [string]$MergeCommit = "87f194d38b3f07fa389eb9d00348f8ffd17010df"
+    [int]$PullRequestNumber = 3,
+    [string]$MergeCommit = "f47baf3b9a22c2e5f3b35f5ffb35f4eebca89645"
 )
 
 $ErrorActionPreference = "Stop"
@@ -134,8 +134,8 @@ Migration: 1 -> 2; destructive migration disabled
 Backup format version: $BackupFormatVersion
 Backup compatibility: v1 read/restore and v2 Todo backup/restore validated
 Validated device: HONOR PPG-AN00, Android 16 / API 36 (serial number omitted)
-Upgrade validation: 0.3.0 -> 0.3.1 signed in-place upgrade passed
-Linked-record navigation: 10 rapid activations -> 1 navigation, 1 highlight, 1 back to Today
+Upgrade validation: 0.3.1 -> 0.4.0 signed in-place upgrade passed
+Historical backfill: empty dates stay absent; TEXT/IMAGE/TABLE create content on demand; History/Search/Summary/Todo/Backup integration passed
 Stability: FATAL/ANR/OOM = 0/0/0
 Compatibility waiver: Android 10-13 second-device/emulator testing was explicitly skipped by the user and is not claimed as passed.
 

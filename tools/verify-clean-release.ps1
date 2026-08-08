@@ -78,19 +78,21 @@ try {
             $errors += [int]$suiteXml.testsuite.errors
             $skipped += [int]$suiteXml.testsuite.skipped
         }
-        if ($tests -ne 254 -or $failures -ne 0 -or $errors -ne 0 -or $skipped -ne 0) {
-            throw "Clean-clone JVM test totals do not match the accepted 254/254 baseline."
+        if ($tests -ne 275 -or $failures -ne 0 -or $errors -ne 0 -or $skipped -ne 0) {
+            throw "Clean-clone JVM test totals do not match the accepted 275/275 baseline."
         }
 
         & .\tools\package-release.ps1 `
-            -Version "0.3.1" `
-            -VersionCode 4 `
+            -Version "0.4.0" `
+            -VersionCode 5 `
             -CertificateSha256 $CertificateSha256 `
             -SdkRoot $SdkRoot `
-            -InstrumentationTests 60 `
+            -InstrumentationTests 65 `
             -RoomVersion 2 `
             -BackupFormatVersion 2 `
-            -SchemaSha256 "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D"
+            -SchemaSha256 "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D" `
+            -PullRequestNumber 3 `
+            -MergeCommit "f47baf3b9a22c2e5f3b35f5ffb35f4eebca89645"
         if ($LASTEXITCODE -ne 0) {
             throw "Clean-clone artifact signature verification failed."
         }

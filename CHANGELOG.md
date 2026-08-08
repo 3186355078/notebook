@@ -1,10 +1,24 @@
 # 变更日志
 
-## 0.4.0-dev
+## 0.4.0 - 内部试用版（2026-08-08）
 
 ### Added
 
-- 支持为过去遗漏日期补充工作记录。
+- 支持为今天及以前遗漏的日期补充工作记录。
+- History 新增轻量“补记录”入口和受未来日期限制的 Material 3 DatePicker。
+- 支持为没有 WorkEntry 的历史日期补录 TEXT、IMAGE 和 TABLE，并在首个有效内容写入时按需创建 WorkEntry。
+
+### Improved
+
+- 空历史日期可进入 Fixed Date Editor，直接退出、取消图片选择或未输入有效文本时不会产生空记录。
+- 补录完成后 History 与 Search 即时更新；对应已结束周/月 Summary 会按当前来源重新判断 stale。
+- 历史 Todo 的“完成并记录”继续写入其 scheduledDate，并保持 linkedContentBlockId 关系。
+
+### Data
+
+- Room Schema 未变化，Room database version 继续为 2。
+- Backup 协议未变化，backupFormatVersion 继续为 2。
+- 本版本不新增或执行数据库 Migration。
 
 ## 0.3.1 - 内部热修复版（2026-08-02）
 

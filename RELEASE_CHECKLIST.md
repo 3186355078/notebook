@@ -1,65 +1,61 @@
-# WorkLog AI 0.3.1 内部热修复发布检查清单
+# WorkLog AI 0.4.0 内部试用发布检查清单
 
 ## GitHub 与 Git
 
-- [x] PR #2 已完成导航幂等、UI 精修、数据协议和敏感信息审查。
-- [x] Draft PR #2 已转为 Ready，并以普通 Merge Commit 合入 `main`。
-- [x] PR Base 为 `main`，Head 为 `feature/v0.3.0-ui-redesign`；未 force push、未自动删除分支。
-- [x] PR #2 merge commit：`87f194d38b3f07fa389eb9d00348f8ffd17010df`。
-- [x] `v0.1.0-internal`、`v0.2.0-internal`、`v0.3.0-internal` 未移动。
-- [x] 0.3.1 最终 Release 提交已推送到远程 `main`。
-- [x] `v0.3.1-internal` annotated Tag 指向最终 HEAD 并仅推送该 Tag。
-- [x] 最终提交前工作区、Git 空白和敏感信息扫描通过。
+- [x] Draft PR #3 已完成历史补录实现、数据协议和敏感信息审查。
+- [x] PR #3 已转为 Ready，并以普通 Merge Commit 合入 `main`。
+- [x] PR Base 为 `main`，Head 为 `feature/v0.4.0-history-backfill`；未 force push，也未删除远程功能分支。
+- [x] PR #3 merge commit：`f47baf3b9a22c2e5f3b35f5ffb35f4eebca89645`。
+- [x] `v0.1.0-internal`、`v0.2.0-internal`、`v0.3.0-internal`、`v0.3.1-internal` 均保持原指向。
+- [x] 0.4.0 最终 Release 提交、`main` 推送和 `v0.4.0-internal` 推送在最终 HEAD 重建验收后完成。
 
 ## 版本与测试
 
-- [x] versionName：0.3.1；versionCode：4。
-- [x] PR 合并前 JVM/Robolectric：254/254，42 suites，failures/errors/skipped 均为 0。
-- [x] PR 合并前 Android 16 HONOR Debug Instrumentation：60/60，failures/errors/skipped 均为 0。
-- [x] Debug Lint、Detekt、ktlint 通过。
-- [x] main 版本转正后的 Debug 与 connected 全量回归通过：254/254 JVM，60/60 Instrumentation，failures/errors/skipped 均为 0。
-- [x] Release Lint、R8 和资源压缩构建通过。
-- [x] 0.3.0→0.3.1 覆盖安装、连续点击 10 次和 Release 核心冒烟通过。
-- [x] 最终 HEAD 的签名构建通过；签名配置仅使用仓库外 Keystore 和当前交互进程环境。
+- [x] versionName：0.4.0；versionCode：5；Release applicationId：`com.worklogai.app`。
+- [x] JVM/Robolectric：275/275，44 suites，failures/errors/skipped 均为 0。
+- [x] Android 16 HONOR Debug Instrumentation：65/65，failures/errors/skipped 均为 0。
+- [x] Debug Lint、Release Lint、Detekt、ktlint 通过。
+- [x] R8/minification 与资源压缩保持启用。
+- [x] 0.3.1/code 4 使用同一证书覆盖升级到 0.4.0/code 5，数据未清除。
 
-## 数据协议
+## 历史补录
 
-- [x] Room database version：2；0.3.1 不新增 Migration。
+- [x] History 提供“补记录”入口，Material 3 DatePicker 禁止未来日期。
+- [x] 无 WorkEntry 的日期可进入 Empty Editor；10 个空日期直接退出后 History 新增记录为 0。
+- [x] TEXT、IMAGE、TABLE 均在首个有效内容产生时按需创建 WorkEntry。
+- [x] Photo Picker 取消不创建 WorkEntry；图片成功后 Attachment 与 IMAGE block 正常。
+- [x] History 与 Search 即时更新，重启和 Backup v2 恢复后仍可读。
+- [x] 已结束自然周和自然月的 Summary 显示“原记录已更新”，旧内容和 editedContent 保留。
+- [x] 历史 Todo“完成并记录”写入 scheduledDate，并创建有效 `linkedContentBlockId`。
+- [x] 快速重复打开补记录入口只存在一个 DatePicker；返回栈无重复编辑页。
+- [x] 横竖屏和后台恢复期间 targetDate 保持不变。
+
+## 数据与协议
+
+- [x] Room database version：2；本版本无新 Migration，无 destructive migration。
 - [x] Schema 1、Schema 2 均保留且字节未变化。
 - [x] Schema 1 SHA-256：`4BF57A358800911B18E10DF66C105D4F513AC7DDC16F89E7CF9F00CE59E32E4C`。
 - [x] Schema 2 SHA-256：`944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D`。
-- [x] 显式 Migration 1→2 保持不变；未使用 destructive migration。
-- [x] backupFormatVersion：2；v1/v2 Preview 与 Restore 语义保持不变。
+- [x] 显式 Migration 1→2 保持不变。
+- [x] backupFormatVersion：2；补录数据继续使用既有 WorkEntry、ContentBlock 和 Attachment 协议。
+- [x] Release Backup v2 Preview/Restore 通过；测试 API Key 未进入备份且恢复后“已配置”状态保留。
+- [x] 备份关系审计：重复 entryDate、孤立 ContentBlock、孤立 Attachment、失效 Todo link 均为 0。
 
 ## 签名与 Release
 
 - [x] Release Keystore 位于仓库外，alias 为 `worklog-ai-release`，算法 RSA 4096。
 - [x] 证书 SHA-256：`15668D9F84061C17CF099A99FF84E1610113204F86311C1044454A30CFC3E801`。
-- [x] 用户已确认 Keystore 在可信位置安全备份。
-- [x] APK v2/v3 签名、非 Debug 证书和 AAB `jarsigner` 验证通过。
-- [x] 最终 HEAD 的 APK/AAB SHA-256 已记录在 Git 忽略目录的 `SHA256SUMS.txt` 和 `RELEASE_REPORT.txt`。
-- [x] 最终 APK/AAB、SHA-256 和 R8 mapping 已归档到 Git 忽略目录且未进入 GitHub。
+- [x] 用户已确认 Keystore 安全备份。
+- [x] APK v2/v3 签名有效且不是 Debug 证书；AAB `jarsigner` 验证有效。
+- [x] `debuggable=false`、`usesCleartextTraffic=false`、`allowBackup=false`。
+- [x] 合并 Manifest 权限与 0.3.1 完全一致，仅保留应用功能及 WorkManager 所需权限。
+- [x] APK/AAB 未发现 dev/debug/test 入口、测试 Key、Keystore、密码、私有路径或测试备份。
+- [x] 最终 HEAD 的 APK/AAB SHA-256 与 R8 mapping 在忽略目录 `release-artifacts/0.4.0/` 的 `SHA256SUMS.txt` 和 `RELEASE_REPORT.txt` 中归档。
 
-## Manifest 与安全
+## 兼容性风险接受
 
-- [x] Release `debuggable=false`、R8 和资源压缩配置保持启用。
-- [x] `usesCleartextTraffic=false`、`allowBackup=false`。
-- [x] 应用源码主动声明仅 INTERNET、POST_NOTIFICATIONS；合并 Manifest 中仅保留 WorkManager 正常运行所需的依赖权限。
-- [x] 不含传统存储、全部文件、相机、位置、通讯录、电话或精确闹钟权限。
-- [x] APK/AAB 不含 Debug 入口、受控 HTTP 地址、测试 Key、用户路径、测试备份或 `0.3.1-dev`。
+> 用户明确跳过 Android 10～13 第二台真机和模拟器兼容测试。该项未执行，不宣称通过，作为 0.4.0 内部试用风险接受。
 
-## 发布材料
-
-- [x] `VISUAL_ACCEPTANCE.md` 已记录浅色、深色、Dynamic Color、大字体、横屏和 TalkBack 结论。
-- [x] CHANGELOG 与 INTERNAL_TESTING_GUIDE 已更新到 0.3.1。
-- [x] PRIVACY 已复核；本版本未改变数据、AI 或备份隐私边界。
-- [x] 最终 HEAD 的 SHA256SUMS 和 RELEASE_REPORT 已由封版脚本生成到 Git 忽略目录。
-- [x] 0.3.1 Device Validation Report 已完成，且不含设备序列号、密钥或工作正文。
-
-## 风险接受
-
-> 用户明确跳过 Android 10～13 第二台真机和模拟器兼容测试。该项未执行，不宣称通过，作为 0.3.1 内部试用风险接受。
-
-- 当前完整矩阵只在 Android 16 / API 36 的 HONOR PPG-AN00 真机执行。
-- Dynamic Color 受壁纸和系统实现影响；其他 OEM SAF Provider、长期后台策略和外部 OpenAI Compatible 服务继续观察。
-- 不提供提醒、循环待办或子任务；Todo 不直接进入 AI；备份默认未加密。
+- 完整矩阵仅在 HONOR PPG-AN00、Android 16 / API 36 真机执行；不记录设备序列号。
+- Dynamic Color 受壁纸影响；其他 OEM SAF Provider、长期后台行为和外部 OpenAI Compatible 服务继续在内部试用期观察。
+- 备份默认未加密；当前无待办提醒、循环待办或子任务。
