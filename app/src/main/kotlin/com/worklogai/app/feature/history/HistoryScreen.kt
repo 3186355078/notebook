@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -27,8 +31,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -56,6 +64,7 @@ fun HistoryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val todoStats by todoStatsViewModel.stats.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showBackfillDatePicker by rememberSaveable { mutableStateOf(false) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.onAction(HistoryAction.Refresh)
@@ -76,16 +85,30 @@ fun HistoryScreen(
         state = state,
         snackbarHostState = snackbarHostState,
         onAction = viewModel::onAction,
+        onBackfillClick = { showBackfillDatePicker = true },
         todoStats = todoStats,
         modifier = modifier,
     )
+    if (showBackfillDatePicker) {
+        HistoryBackfillDatePicker(
+            initialDate = state.selectedDate,
+            today = LocalDate.now(),
+            onDismiss = { showBackfillDatePicker = false },
+            onConfirm = { date ->
+                showBackfillDatePicker = false
+                viewModel.onAction(HistoryAction.OpenBackfill(date))
+            },
+        )
+    }
 }
 
 @Composable
+@Suppress("LongParameterList")
 internal fun HistoryScreenContent(
     state: HistoryUiState,
     snackbarHostState: SnackbarHostState,
     onAction: (HistoryAction) -> Unit,
+    onBackfillClick: () -> Unit = {},
     todoStats: Map<LocalDate, TodoDateStats> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
@@ -103,6 +126,15 @@ internal fun HistoryScreenContent(
             WorkLogPageHeader(
                 title = "工作回顾",
                 subtitle = "按日期、周期或关键词快速找到过去的工作脉络",
+                metrics = {
+                    OutlinedButton(
+                        onClick = onBackfillClick,
+                        modifier = Modifier.testTag("history_backfill_action"),
+                    ) {
+                        Icon(Icons.Outlined.Add, contentDescription = null)
+                        Text("补记录", modifier = Modifier.padding(start = WorkLogSpacing.extraSmall))
+                    }
+                },
                 modifier =
                     Modifier.padding(
                         start = WorkLogSpacing.largePlus,

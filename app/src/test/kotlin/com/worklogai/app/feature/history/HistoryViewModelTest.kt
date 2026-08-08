@@ -11,6 +11,8 @@ import com.worklogai.app.core.history.WorkHistoryRepository
 import com.worklogai.app.feature.editor.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -163,6 +165,28 @@ class HistoryViewModelTest {
 
         assertEquals(future, viewModel.uiState.value.selectedDate)
         assertEquals(future to future, repository.rangeRequests.last())
+    }
+
+    @Test
+    fun `backfill opens past date and rejects future date without navigation`() {
+        val past = LocalDate.of(2026, 7, 4)
+        viewModel.onAction(HistoryAction.OpenBackfill(past))
+        assertEquals(HistoryUiEvent.OpenEditor(past), runBlocking { viewModel.events.first() })
+
+        viewModel.onAction(HistoryAction.OpenBackfill(LocalDate.of(2026, 7, 13)))
+        assertEquals(
+            HistoryUiEvent.ShowMessage("只能补充今天或更早的工作记录"),
+            runBlocking { viewModel.events.first() },
+        )
+    }
+
+    @Test
+    fun `ordinary future entry navigation remains available for todo planning`() {
+        val future = LocalDate.of(2026, 7, 13)
+
+        viewModel.onAction(HistoryAction.OpenEntry(future))
+
+        assertEquals(HistoryUiEvent.OpenEditor(future), runBlocking { viewModel.events.first() })
     }
 
     @Test

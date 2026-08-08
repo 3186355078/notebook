@@ -63,6 +63,10 @@ sealed interface HistoryAction {
     data class OpenEntry(
         val date: LocalDate,
     ) : HistoryAction
+
+    data class OpenBackfill(
+        val date: LocalDate,
+    ) : HistoryAction
 }
 
 sealed interface HistoryUiEvent {

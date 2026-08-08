@@ -23,7 +23,7 @@ fun EntryEditorScreen(
         LaunchedEffect(entryDate) { onInvalidDate() }
         EmptyState(
             title = "无法打开该日期",
-            body = "请返回历史记录重新选择。",
+            body = "请选择有效日期。",
             modifier = modifier,
         )
     } else {

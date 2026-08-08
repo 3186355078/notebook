@@ -5,10 +5,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.worklogai.app.core.designsystem.theme.WorkLogTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.time.LocalDate
@@ -39,6 +41,51 @@ class HistoryScreenContentTest {
         composeRule.onNodeWithText("按月").assertIsDisplayed()
         composeRule.onNodeWithText("完成历史页面").performClick()
         composeRule.runOnIdle { assertEquals(HistoryAction.OpenEntry(LocalDate.of(2026, 7, 12)), actions.last()) }
+    }
+
+    @Test
+    fun backfillActionIsVisibleAccessibleAndOnlyInvokesOnePickerRequest() {
+        var pickerRequests = 0
+
+        composeRule.setContent {
+            WorkLogTheme {
+                HistoryScreenContent(
+                    state = state(),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    onAction = {},
+                    onBackfillClick = { pickerRequests++ },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("history_backfill_action").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertEquals(1, pickerRequests) }
+    }
+
+    @Test
+    fun backfillDatePickerShowsGuidanceAndCancelDoesNotConfirm() {
+        var dismissed = false
+        val confirmed = mutableListOf<LocalDate>()
+
+        composeRule.setContent {
+            WorkLogTheme {
+                HistoryBackfillDatePicker(
+                    initialDate = LocalDate.of(2026, 7, 10),
+                    today = LocalDate.of(2026, 7, 12),
+                    onDismiss = { dismissed = true },
+                    onConfirm = confirmed::add,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("history_backfill_date_picker").assertIsDisplayed()
+        composeRule.onNodeWithText("选择补录日期").assertIsDisplayed()
+        composeRule.onNodeWithText("选择需要补充工作记录的日期").assertIsDisplayed()
+        composeRule.onNodeWithText("取消").performClick()
+        composeRule.runOnIdle {
+            assertTrue(dismissed)
+            assertTrue(confirmed.isEmpty())
+        }
     }
 
     @Test

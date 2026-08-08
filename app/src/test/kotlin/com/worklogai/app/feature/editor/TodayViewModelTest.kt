@@ -10,14 +10,19 @@ import com.worklogai.app.core.attachment.StoredImage
 import com.worklogai.app.core.common.id.IdGenerator
 import com.worklogai.app.core.common.result.DataError
 import com.worklogai.app.core.common.result.DataResult
+import com.worklogai.app.core.common.time.LocalDateProvider
 import com.worklogai.app.core.common.time.TimeProvider
+import com.worklogai.app.core.database.successValue
 import com.worklogai.app.core.model.Attachment
 import com.worklogai.app.core.model.AttachmentDraft
 import com.worklogai.app.core.model.ContentBlock
+import com.worklogai.app.core.model.CreatedWorkContent
+import com.worklogai.app.core.model.NewWorkContent
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.WorkEntry
 import com.worklogai.app.core.repository.WorkEntryRepository
 import com.worklogai.app.core.table.DefaultTableContentEditor
+import com.worklogai.app.core.workentry.CreateWorkContentForDateUseCase
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -34,8 +39,10 @@ import org.junit.Rule
 import org.junit.Test
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("LargeClass")
 class TodayViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -52,6 +59,7 @@ class TodayViewModelTest {
         viewModel =
             TodayViewModel(
                 workEntryRepository = repository,
+                createWorkContentForDate = createContentUseCase(repository),
                 attachmentFileStore = fileStore,
                 tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
                 timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
@@ -73,6 +81,7 @@ class TodayViewModelTest {
         val failingViewModel =
             TodayViewModel(
                 workEntryRepository = failingRepository,
+                createWorkContentForDate = createContentUseCase(failingRepository),
                 attachmentFileStore = FakeAttachmentFileStore(),
                 tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
                 timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
@@ -112,6 +121,7 @@ class TodayViewModelTest {
         val linkedViewModel =
             TodayViewModel(
                 workEntryRepository = repository,
+                createWorkContentForDate = createContentUseCase(repository),
                 attachmentFileStore = fileStore,
                 tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
                 timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
@@ -141,6 +151,7 @@ class TodayViewModelTest {
         val linkedViewModel =
             TodayViewModel(
                 workEntryRepository = repository,
+                createWorkContentForDate = createContentUseCase(repository),
                 attachmentFileStore = fileStore,
                 tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
                 timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
@@ -702,6 +713,7 @@ class TodayViewModelTest {
         val fixedDateViewModel =
             TodayViewModel(
                 workEntryRepository = repository,
+                createWorkContentForDate = createContentUseCase(repository),
                 attachmentFileStore = fileStore,
                 tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
                 timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
@@ -715,6 +727,141 @@ class TodayViewModelTest {
         assertEquals(historyDate, fixedDateViewModel.uiState.value.date)
         assertFalse(fixedDateViewModel.uiState.value.followsCurrentDate)
     }
+
+    @Test
+    fun `missing fixed date loads as editable empty state without creating entry`() {
+        val historyDate = date.minusDays(3)
+        val fixedDateViewModel = createFixedDateViewModel(repository, historyDate)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        assertFalse(fixedDateViewModel.uiState.value.isLoading)
+        assertNull(fixedDateViewModel.uiState.value.entryId)
+        assertTrue(
+            fixedDateViewModel.uiState.value.blocks
+                .isEmpty(),
+        )
+        assertTrue(fixedDateViewModel.uiState.value.canEdit)
+        assertNull(runBlocking { repository.getEntry(historyDate).successValue() })
+    }
+
+    @Test
+    fun `opening twenty empty fixed dates never creates work entries`() {
+        val emptyRepository = FakeWorkEntryRepository()
+
+        repeat(20) { offset ->
+            createFixedDateViewModel(emptyRepository, date.minusDays(offset.toLong() + 1))
+            mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        }
+
+        assertTrue(emptyRepository.getOrCreateDates.isEmpty())
+        repeat(20) { offset ->
+            assertNull(
+                runBlocking {
+                    emptyRepository.getEntry(date.minusDays(offset.toLong() + 1)).successValue()
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `first nonblank historical text creates entry only after debounce`() {
+        val historyDate = date.minusDays(2)
+        val fixedDateViewModel = createFixedDateViewModel(repository, historyDate)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        fixedDateViewModel.onAction(TodayAction.AddTextBlock)
+        val pending =
+            fixedDateViewModel.uiState.value.blocks
+                .single() as TextBlockUiModel
+
+        fixedDateViewModel.onAction(TodayAction.TextChanged(pending.id, "完成历史接口联调"))
+        mainDispatcherRule.dispatcher.scheduler.advanceTimeBy(599)
+        assertNull(runBlocking { repository.getEntry(historyDate).successValue() })
+
+        mainDispatcherRule.dispatcher.scheduler.advanceTimeBy(1)
+        mainDispatcherRule.dispatcher.scheduler.advanceUntilIdle()
+        val created = runBlocking { repository.getEntry(historyDate).successValue() }
+        assertEquals("完成历史接口联调", (created!!.blocks.single() as ContentBlock.Text).content)
+        assertEquals(created.id, fixedDateViewModel.uiState.value.entryId)
+        assertFalse(
+            (
+                fixedDateViewModel.uiState.value.blocks
+                    .single() as TextBlockUiModel
+            ).isPending,
+        )
+    }
+
+    @Test
+    fun `blank historical text never creates an entry before leaving editor`() {
+        val historyDate = date.minusDays(4)
+        val fixedDateViewModel = createFixedDateViewModel(repository, historyDate)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        fixedDateViewModel.onAction(TodayAction.AddTextBlock)
+        val pending =
+            fixedDateViewModel.uiState.value.blocks
+                .single() as TextBlockUiModel
+
+        fixedDateViewModel.onAction(TodayAction.TextChanged(pending.id, "   "))
+        fixedDateViewModel.onAction(TodayAction.FlushPendingEdits)
+        mainDispatcherRule.dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(runBlocking { repository.getEntry(historyDate).successValue() })
+    }
+
+    @Test
+    fun `first historical table and successful image each create their target date`() {
+        val tableDate = date.minusDays(5)
+        val tableViewModel = createFixedDateViewModel(repository, tableDate)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        tableViewModel.onAction(TodayAction.AddTableBlock)
+        mainDispatcherRule.dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(
+            runBlocking { repository.getEntry(tableDate).successValue() }!!
+                .blocks
+                .single() is ContentBlock.Table,
+        )
+
+        val imageDate = date.minusDays(6)
+        fileStore.storedImage = StoredImage("images/backfill.jpg", "image/jpeg", 100L, 40, 20)
+        val imageViewModel = createFixedDateViewModel(repository, imageDate)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        imageViewModel.onAction(TodayAction.ImageSelected(mockk<Uri>()))
+        mainDispatcherRule.dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(
+            runBlocking { repository.getEntry(imageDate).successValue() }!!
+                .blocks
+                .single() is ContentBlock.Image,
+        )
+    }
+
+    @Test
+    fun `failed first historical image leaves no empty entry`() {
+        val historyDate = date.minusDays(7)
+        fileStore.storedImage = StoredImage("images/backfill-failure.jpg", "image/jpeg", 100L, 40, 20)
+        repository.failNextAddImage = true
+        val fixedDateViewModel = createFixedDateViewModel(repository, historyDate)
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        fixedDateViewModel.onAction(TodayAction.ImageSelected(mockk<Uri>()))
+        mainDispatcherRule.dispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(runBlocking { repository.getEntry(historyDate).successValue() })
+        assertEquals(listOf("images/backfill-failure.jpg"), fileStore.deletedPaths)
+    }
+
+    private fun createFixedDateViewModel(
+        repository: WorkEntryRepository,
+        historyDate: LocalDate,
+    ) = TodayViewModel(
+        workEntryRepository = repository,
+        createWorkContentForDate = createContentUseCase(repository),
+        attachmentFileStore = fileStore,
+        tableContentEditor = DefaultTableContentEditor(SequenceIdGenerator()),
+        timeProvider = FixedTimeProvider(Instant.parse("2026-07-12T08:00:00Z")),
+        savedStateHandle = SavedStateHandle(mapOf(ENTRY_DATE_ARGUMENT to historyDate.toString())),
+    )
+
+    private fun createContentUseCase(repository: WorkEntryRepository) =
+        CreateWorkContentForDateUseCase(repository, FixedLocalDateProvider(date))
 }
 
 private class FixedTimeProvider(
@@ -786,6 +933,37 @@ private class FakeWorkEntryRepository : WorkEntryRepository {
         val entry = entries.getOrPut(date) { emptyEntry(date) }
         flowFor(date).value = DataResult.Success(entry)
         return DataResult.Success(entry)
+    }
+
+    override suspend fun createContentForDate(
+        date: LocalDate,
+        content: NewWorkContent,
+    ): DataResult<CreatedWorkContent> {
+        val existed = date in entries
+        val entry = entries.getOrPut(date) { emptyEntry(date) }
+        flowFor(date).value = DataResult.Success(entry)
+        val blockResult =
+            when (content) {
+                is NewWorkContent.Text -> addTextBlock(entry.id, content.text)
+                is NewWorkContent.Table -> addTableBlock(entry.id, content.content)
+                is NewWorkContent.Image -> addImageBlock(entry.id, content.attachment)
+            }
+        return when (blockResult) {
+            is DataResult.Failure -> {
+                if (!existed) {
+                    entries.remove(date)
+                    flowFor(date).value = DataResult.Success(null)
+                }
+                blockResult
+            }
+            is DataResult.Success ->
+                DataResult.Success(
+                    CreatedWorkContent(
+                        entry = entries.getValue(date),
+                        block = blockResult.value,
+                    ),
+                )
+        }
     }
 
     override suspend fun updateEntryTitle(
@@ -1118,4 +1296,12 @@ private class FakeWorkEntryRepository : WorkEntryRepository {
         )
 
     private fun <T> missing(): DataResult<T> = DataResult.Failure(DataError.NotFound)
+}
+
+private class FixedLocalDateProvider(
+    private val date: LocalDate,
+) : LocalDateProvider {
+    override fun today(): LocalDate = date
+
+    override fun zoneId(): ZoneId = ZoneId.of("UTC")
 }

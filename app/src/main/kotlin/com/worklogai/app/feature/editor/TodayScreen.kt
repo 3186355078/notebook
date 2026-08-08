@@ -259,7 +259,7 @@ private fun TodayScreenBody(
                 paddingValues = paddingValues,
                 onTodoAction = onTodoAction,
             )
-        state.entryId == null ->
+        state.entryId == null && state.errorMessage != null ->
             LoadErrorContent(
                 state = state,
                 onAction = onAction,
@@ -364,6 +364,7 @@ private fun TodayEntryList(
         }
         item(key = "quick_record_toolbar") {
             QuickRecordToolbar(
+                isHistorical = !state.followsCurrentDate,
                 isImageImporting = state.isImageImporting,
                 onAddText = { onAction(TodayAction.AddTextBlock) },
                 onAddImage = onPickImage,
@@ -382,8 +383,18 @@ private fun LazyListScope.editorBlocks(
     if (state.blocks.isEmpty()) {
         item(key = "today_empty") {
             EmptyState(
-                title = stringResource(R.string.today_empty_title),
-                body = stringResource(R.string.today_empty_body),
+                title =
+                    if (state.followsCurrentDate) {
+                        stringResource(R.string.today_empty_title)
+                    } else {
+                        "这一天还没有工作记录"
+                    },
+                body =
+                    if (state.followsCurrentDate) {
+                        stringResource(R.string.today_empty_body)
+                    } else {
+                        "补充当天做过的事情吧"
+                    },
                 action = {
                     Button(onClick = { onAction(TodayAction.AddTextBlock) }) {
                         Text(stringResource(R.string.today_add_text))
@@ -397,12 +408,15 @@ private fun LazyListScope.editorBlocks(
             items = state.blocks,
             key = { _, block -> block.id },
         ) { index, block ->
+            val isPendingText = block is TextBlockUiModel && block.isPending
             EditorBlockItem(
                 presentation =
                     EditorBlockPresentation(
                         block = block,
-                        canMoveUp = index > 0 && !state.isStructureOperationInProgress,
-                        canMoveDown = index < state.blocks.lastIndex && !state.isStructureOperationInProgress,
+                        canMoveUp = !isPendingText && index > 0 && !state.isStructureOperationInProgress,
+                        canMoveDown =
+                            !isPendingText && index < state.blocks.lastIndex && !state.isStructureOperationInProgress,
+                        canConvertToTodo = !isPendingText,
                         requestsFocus = block.id == state.focusedBlockId,
                         isHighlighted = block.id == state.highlightedBlockId,
                     ),
@@ -417,6 +431,7 @@ private fun LazyListScope.editorBlocks(
 
 @Composable
 private fun QuickRecordToolbar(
+    isHistorical: Boolean,
     isImageImporting: Boolean,
     onAddText: () -> Unit,
     onAddImage: () -> Unit,
@@ -425,7 +440,12 @@ private fun QuickRecordToolbar(
     Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
         WorkLogSectionHeader(
             title = "快速记录",
-            description = "从文字、图片或表格开始记录今天的工作",
+            description =
+                if (isHistorical) {
+                    "从文字、图片或表格补充当天的工作"
+                } else {
+                    "从文字、图片或表格开始记录今天的工作"
+                },
         )
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -445,8 +465,8 @@ private fun QuickRecordToolbar(
             }
         }
         WorkLogSectionHeader(
-            title = "今日工作记录",
-            description = "内容会自动保存在当前日期",
+            title = if (isHistorical) "当日工作记录" else "今日工作记录",
+            description = if (isHistorical) "内容会自动保存在所选日期" else "内容会自动保存在当前日期",
         )
     }
 }
@@ -467,7 +487,7 @@ private fun EditorBlockItem(
             onMoveDown = { onAction(TodayAction.MoveBlockDown(block.id)) },
             onDelete = { onAction(TodayAction.RequestDeleteBlock(block.id)) },
             onConvertToTodo =
-                if (block is TextBlockUiModel) {
+                if (block is TextBlockUiModel && presentation.canConvertToTodo) {
                     { onConvertTextBlock(block.id) }
                 } else {
                     null
@@ -546,6 +566,7 @@ private data class EditorBlockPresentation(
     val block: EditorBlockUiModel,
     val canMoveUp: Boolean,
     val canMoveDown: Boolean,
+    val canConvertToTodo: Boolean,
     val requestsFocus: Boolean,
     val isHighlighted: Boolean,
 )

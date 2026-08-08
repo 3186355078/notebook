@@ -29,7 +29,7 @@ internal fun TodayHeader(
                     val remaining = (presentation.todoCount - presentation.doneCount).coerceAtLeast(0)
                     if (remaining == 0) "今天的待办已完成" else "今天还有 $remaining 项待办"
                 } else {
-                    "固定日期"
+                    "历史记录"
                 },
             title = presentation.title ?: presentation.dateText,
             subtitle =

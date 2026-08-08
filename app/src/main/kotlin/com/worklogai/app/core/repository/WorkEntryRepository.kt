@@ -4,6 +4,8 @@ import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.model.Attachment
 import com.worklogai.app.core.model.AttachmentDraft
 import com.worklogai.app.core.model.ContentBlock
+import com.worklogai.app.core.model.CreatedWorkContent
+import com.worklogai.app.core.model.NewWorkContent
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.WorkEntry
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +23,12 @@ interface WorkEntryRepository {
     ): DataResult<List<WorkEntry>>
 
     suspend fun getOrCreateEntry(date: LocalDate): DataResult<WorkEntry>
+
+    /** Atomically creates or restores the date aggregate and appends its first or next content block. */
+    suspend fun createContentForDate(
+        date: LocalDate,
+        content: NewWorkContent,
+    ): DataResult<CreatedWorkContent>
 
     suspend fun updateEntryTitle(
         entryId: String,

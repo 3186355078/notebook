@@ -39,4 +39,26 @@ class RestoreNavigationTest {
             ),
         )
     }
+
+    @Test
+    fun `historical backfill navigation rejects the same date destination`() {
+        assertFalse(
+            shouldNavigateToEntryEditor(
+                currentRoute = ENTRY_EDITOR_ROUTE,
+                currentDate = "2026-08-04",
+                currentLinkedContentBlockId = null,
+                targetDate = "2026-08-04",
+                targetLinkedContentBlockId = null,
+            ),
+        )
+        assertTrue(
+            shouldNavigateToEntryEditor(
+                currentRoute = ENTRY_EDITOR_ROUTE,
+                currentDate = "2026-08-04",
+                currentLinkedContentBlockId = null,
+                targetDate = "2026-08-03",
+                targetLinkedContentBlockId = null,
+            ),
+        )
+    }
 }

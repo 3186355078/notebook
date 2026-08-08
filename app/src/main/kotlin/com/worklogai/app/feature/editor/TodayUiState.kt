@@ -21,7 +21,7 @@ data class TodayUiState(
     val isFuturePlanning: Boolean = false,
 ) {
     val canEdit: Boolean
-        get() = !isLoading && entryId != null
+        get() = !isLoading && !isFuturePlanning && errorMessage == null
 }
 
 sealed interface SaveState {
@@ -49,6 +49,7 @@ data class TextBlockUiModel(
     val text: String,
     val isSaving: Boolean,
     val hasSaveError: Boolean,
+    val isPending: Boolean = false,
 ) : EditorBlockUiModel
 
 data class UnsupportedBlockUiModel(

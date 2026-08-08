@@ -22,6 +22,8 @@ import com.worklogai.app.core.model.Attachment
 import com.worklogai.app.core.model.AttachmentDraft
 import com.worklogai.app.core.model.ContentBlock
 import com.worklogai.app.core.model.ContentBlockType
+import com.worklogai.app.core.model.CreatedWorkContent
+import com.worklogai.app.core.model.NewWorkContent
 import com.worklogai.app.core.model.TableContent
 import com.worklogai.app.core.model.WorkEntry
 import com.worklogai.app.core.repository.WorkEntryRepository
@@ -99,6 +101,40 @@ class OfflineWorkEntryRepository
                         else -> existing.toDomain(tableContentCodec)
                     }
                 }
+            }
+
+        override suspend fun createContentForDate(
+            date: LocalDate,
+            content: NewWorkContent,
+        ): DataResult<CreatedWorkContent> =
+            when (content) {
+                is NewWorkContent.Text ->
+                    createContentForDate(
+                        date = date,
+                        blockType = ContentBlockType.TEXT,
+                        textContent = content.text,
+                    )
+                is NewWorkContent.Image -> {
+                    if (!content.attachment.isValid()) {
+                        invalid(DataValidationReason.INVALID_ATTACHMENT)
+                    } else {
+                        createContentForDate(
+                            date = date,
+                            blockType = ContentBlockType.IMAGE,
+                            attachment = content.attachment,
+                        )
+                    }
+                }
+                is NewWorkContent.Table ->
+                    when (val encoded = tableContentCodec.encode(content.content)) {
+                        is DataResult.Failure -> encoded
+                        is DataResult.Success ->
+                            createContentForDate(
+                                date = date,
+                                blockType = ContentBlockType.TABLE,
+                                structuredContent = encoded.value,
+                            )
+                    }
             }
 
         override suspend fun updateEntryTitle(
@@ -359,30 +395,102 @@ class OfflineWorkEntryRepository
             return entryForDate(date)
         }
 
+        private suspend fun createContentForDate(
+            date: LocalDate,
+            blockType: ContentBlockType,
+            textContent: String? = null,
+            structuredContent: String? = null,
+            attachment: AttachmentDraft? = null,
+        ): DataResult<CreatedWorkContent> =
+            databaseResult {
+                database.withTransaction {
+                    val entryId = activeEntryIdForDate(date)
+                    val inserted = insertBlock(entryId, blockType, textContent, structuredContent)
+                    val block =
+                        when (inserted) {
+                            is DataResult.Failure -> return@withTransaction inserted
+                            is DataResult.Success -> inserted.value
+                        }
+                    attachment?.let { draft ->
+                        attachmentDao.insert(
+                            AttachmentEntity(
+                                id = idGenerator.generate(),
+                                blockId = block.id,
+                                localPath = draft.localPath,
+                                mimeType = draft.mimeType,
+                                fileSize = draft.fileSize,
+                                width = draft.width,
+                                height = draft.height,
+                                caption = draft.caption.normalizeCaption(),
+                                createdAt = timeProvider.now(),
+                            ),
+                        )
+                    }
+                    val finalBlock =
+                        when (val result = blockForId(block.id)) {
+                            is DataResult.Failure -> return@withTransaction result
+                            is DataResult.Success -> result.value
+                        }
+                    when (val entry = entryForDate(date)) {
+                        is DataResult.Failure -> entry
+                        is DataResult.Success -> DataResult.Success(CreatedWorkContent(entry.value, finalBlock))
+                    }
+                }
+            }
+
+        private suspend fun activeEntryIdForDate(date: LocalDate): String {
+            val existing = workEntryDao.getWithContentByDateIncludingDeleted(date)?.entry
+            if (existing != null) {
+                if (existing.isDeleted) workEntryDao.restore(existing.id, timeProvider.now())
+                return existing.id
+            }
+            val now = timeProvider.now()
+            val id = idGenerator.generate()
+            workEntryDao.insert(
+                WorkEntryEntity(
+                    id = id,
+                    entryDate = date,
+                    title = null,
+                    allowAiProcessing = true,
+                    isDeleted = false,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+            return id
+        }
+
         private suspend fun addBlock(
             entryId: String,
             blockType: ContentBlockType,
             textContent: String?,
             structuredContent: String?,
         ): DataResult<ContentBlock> =
-            database.withTransaction {
-                if (workEntryDao.getActiveById(entryId) == null) return@withTransaction notFound()
+            database.withTransaction { insertBlock(entryId, blockType, textContent, structuredContent) }
 
-                val now = timeProvider.now()
-                val block =
-                    ContentBlockEntity(
-                        id = idGenerator.generate(),
-                        entryId = entryId,
-                        blockType = blockType,
-                        blockOrder = contentBlockDao.nextBlockOrder(entryId),
-                        textContent = textContent,
-                        structuredContent = structuredContent,
-                        createdAt = now,
-                        updatedAt = now,
-                    )
-                contentBlockDao.insert(block)
-                blockForId(block.id)
-            }
+        private suspend fun insertBlock(
+            entryId: String,
+            blockType: ContentBlockType,
+            textContent: String?,
+            structuredContent: String?,
+        ): DataResult<ContentBlock> {
+            if (workEntryDao.getActiveById(entryId) == null) return notFound()
+
+            val now = timeProvider.now()
+            val block =
+                ContentBlockEntity(
+                    id = idGenerator.generate(),
+                    entryId = entryId,
+                    blockType = blockType,
+                    blockOrder = contentBlockDao.nextBlockOrder(entryId),
+                    textContent = textContent,
+                    structuredContent = structuredContent,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            contentBlockDao.insert(block)
+            return blockForId(block.id)
+        }
 
         private suspend fun entryForDate(date: LocalDate): DataResult<WorkEntry> =
             workEntryDao

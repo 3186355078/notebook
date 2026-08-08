@@ -66,6 +66,31 @@ class SummarySourceHasherTest {
         assertNotEquals(hasher.hash(listOf(original)), hasher.hash(listOf(changedCaption)))
     }
 
+    @Test
+    fun `historical backfill changes eligible period hash while AI-disabled entry is excluded upstream`() {
+        val existing = entry(updatedAt = createdAt, attachmentPath = "images/a.jpg")
+        val backfilled =
+            existing.copy(
+                id = "backfill-entry",
+                entryDate = LocalDate.of(2026, 7, 8),
+                blocks =
+                    listOf(
+                        (existing.blocks.first() as ContentBlock.Text).copy(
+                            id = "backfill-text",
+                            entryId = "backfill-entry",
+                            content = "补录历史工作",
+                        ),
+                    ),
+            )
+        val aiDisabled = backfilled.copy(id = "private-entry", allowAiProcessing = false)
+
+        assertNotEquals(hasher.hash(listOf(existing)), hasher.hash(listOf(existing, backfilled)))
+        assertEquals(
+            hasher.hash(listOf(existing, backfilled)),
+            hasher.hash(listOf(existing, backfilled, aiDisabled).filter(WorkEntry::allowAiProcessing)),
+        )
+    }
+
     private fun entry(
         updatedAt: Instant,
         attachmentPath: String,

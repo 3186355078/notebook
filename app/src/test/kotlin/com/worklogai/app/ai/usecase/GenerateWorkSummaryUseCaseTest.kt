@@ -301,6 +301,11 @@ private class FakeEntryRepository(
     override suspend fun getOrCreateEntry(date: LocalDate): DataResult<WorkEntry> =
         DataResult.Failure(DataError.NotFound)
 
+    override suspend fun createContentForDate(
+        date: LocalDate,
+        content: com.worklogai.app.core.model.NewWorkContent,
+    ): DataResult<com.worklogai.app.core.model.CreatedWorkContent> = DataResult.Failure(DataError.NotFound)
+
     override suspend fun updateEntryTitle(
         entryId: String,
         title: String?,
