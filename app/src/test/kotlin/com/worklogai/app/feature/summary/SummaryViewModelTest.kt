@@ -111,6 +111,42 @@ class SummaryViewModelTest {
     }
 
     @Test
+    fun `stale persisted generation becomes a retryable failure`() {
+        val stale =
+            existing.copy(
+                status = SummaryStatus.GENERATING,
+                updatedAt = Instant.parse("2026-07-17T23:57:49Z"),
+            )
+        coEvery { loader.load(any(), any()) } returns
+            SummaryPeriodLoadResult.Success(1, 1, stale, stale.sourceHash)
+
+        val viewModel = viewModel()
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        val generationState = viewModel.uiState.value.generationState
+        assertTrue(generationState is SummaryGenerationState.Failed)
+        generationState as SummaryGenerationState.Failed
+        assertEquals("上次生成已中断，请重试", generationState.message)
+        assertTrue(generationState.hasPreviousContent)
+    }
+
+    @Test
+    fun `recent persisted generation remains generating`() {
+        val recent =
+            existing.copy(
+                status = SummaryStatus.GENERATING,
+                updatedAt = Instant.parse("2026-07-17T23:58:00Z"),
+            )
+        coEvery { loader.load(any(), any()) } returns
+            SummaryPeriodLoadResult.Success(1, 1, recent, recent.sourceHash)
+
+        val viewModel = viewModel()
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        assertEquals(SummaryGenerationState.Generating, viewModel.uiState.value.generationState)
+    }
+
+    @Test
     fun `retry replaces a controlled failure with the successful result`() {
         val successful = existing.copy(editedContent = "retry-success")
         coEvery { generator.invoke(any(), any(), any()) } returnsMany

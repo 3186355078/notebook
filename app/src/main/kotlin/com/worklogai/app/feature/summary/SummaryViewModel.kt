@@ -12,6 +12,7 @@ import com.worklogai.app.app.navigation.SUMMARY_TYPE_ARGUMENT
 import com.worklogai.app.app.navigation.summaryNavigationTargetOrNull
 import com.worklogai.app.core.common.result.DataResult
 import com.worklogai.app.core.common.time.TimeProvider
+import com.worklogai.app.core.datastore.MAX_TIMEOUT_SECONDS
 import com.worklogai.app.core.history.DateRange
 import com.worklogai.app.core.history.WorkPeriodCalculator
 import com.worklogai.app.core.model.SummaryStatus
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -147,7 +149,7 @@ class SummaryViewModel
                 viewModelScope.launch {
                     val loaded = dependencies.summaryPeriodLoader.load(type, period)
                     if (_uiState.value.summaryType != type || _uiState.value.period != period) return@launch
-                    _uiState.value = _uiState.value.withLoaded(loaded)
+                    _uiState.value = _uiState.value.withLoaded(loaded, dependencies.timeProvider.now())
                 }
         }
 
@@ -168,7 +170,8 @@ class SummaryViewModel
                 viewModelScope.launch {
                     val result = dependencies.generateWorkSummary(type, period)
                     if (_uiState.value.summaryType == type && _uiState.value.period == period) {
-                        _uiState.value = _uiState.value.withGenerationResult(result)
+                        _uiState.value =
+                            _uiState.value.withGenerationResult(result, dependencies.timeProvider.now())
                     }
                 }
         }
@@ -228,7 +231,10 @@ class SummaryViewModel
         }
     }
 
-private fun SummaryUiState.withLoaded(loaded: SummaryPeriodLoadResult): SummaryUiState =
+private fun SummaryUiState.withLoaded(
+    loaded: SummaryPeriodLoadResult,
+    now: Instant,
+): SummaryUiState =
     when (loaded) {
         SummaryPeriodLoadResult.Failure -> copy(isLoading = false, errorMessage = "无法加载工作记录")
         is SummaryPeriodLoadResult.Success -> {
@@ -242,12 +248,15 @@ private fun SummaryUiState.withLoaded(loaded: SummaryPeriodLoadResult): SummaryU
                 summary = loaded.summary,
                 isOutdated = isOutdated,
                 wasInputTruncated = false,
-                generationState = loaded.summary.toGenerationState(),
+                generationState = loaded.summary.toGenerationState(now),
             )
         }
     }
 
-private fun SummaryUiState.withGenerationResult(result: GenerateWorkSummaryResult): SummaryUiState =
+private fun SummaryUiState.withGenerationResult(
+    result: GenerateWorkSummaryResult,
+    now: Instant,
+): SummaryUiState =
     when (result) {
         is GenerateWorkSummaryResult.Failure ->
             copy(generationState = SummaryGenerationState.Failed(result.message, result.hasPreviousContent))
@@ -256,7 +265,7 @@ private fun SummaryUiState.withGenerationResult(result: GenerateWorkSummaryResul
             copy(generationState = SummaryGenerationState.NoEligibleContent(result.allEntriesBlocked))
 
         is GenerateWorkSummaryResult.Skipped ->
-            copy(generationState = summary.toGenerationState())
+            copy(generationState = summary.toGenerationState(now))
 
         is GenerateWorkSummaryResult.Success ->
             copy(
@@ -267,15 +276,22 @@ private fun SummaryUiState.withGenerationResult(result: GenerateWorkSummaryResul
             )
     }
 
-private fun WorkSummary?.toGenerationState(): SummaryGenerationState =
+private fun WorkSummary?.toGenerationState(now: Instant): SummaryGenerationState =
     when {
-        this?.status == SummaryStatus.GENERATING -> SummaryGenerationState.Generating
+        this?.status == SummaryStatus.GENERATING && !isStaleGeneration(now) -> SummaryGenerationState.Generating
+        this?.status == SummaryStatus.GENERATING ->
+            SummaryGenerationState.Failed("上次生成已中断，请重试", displayContent != null)
         this?.status == SummaryStatus.FAILED ->
             SummaryGenerationState.Failed(errorMessage ?: "总结生成失败", displayContent != null)
 
         this?.displayContent != null -> SummaryGenerationState.Success
         else -> SummaryGenerationState.Idle
     }
+
+private fun WorkSummary.isStaleGeneration(now: Instant): Boolean =
+    !updatedAt
+        .plusSeconds(MAX_TIMEOUT_SECONDS.toLong() + STALE_GENERATION_GRACE_SECONDS)
+        .isAfter(now)
 
 private fun WorkSummary?.hasManualEdits(workSummarySkill: WorkSummarySkill): Boolean {
     val summary = this ?: return false
@@ -301,6 +317,8 @@ private fun WorkPeriodCalculator.periodContaining(
     }
 
 private fun TimeProvider.today(): LocalDate = now().atZone(ZoneId.systemDefault()).toLocalDate()
+
+private const val STALE_GENERATION_GRACE_SECONDS = 10L
 
 private fun SavedStateHandle.toSummaryTargetOrNull(): Pair<SummaryType, DateRange>? =
     summaryNavigationTargetOrNull(
