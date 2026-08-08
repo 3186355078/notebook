@@ -190,6 +190,31 @@ class GenerateWorkSummaryUseCaseTest {
         }
 
     @Test
+    fun `contentless model json is regenerated once from the original work log input`() =
+        runBlocking {
+            val provider = ContentlessThenValidProvider()
+            val result =
+                createUseCase(
+                    FakeEntryRepository(listOf(entry(allowAi = true))),
+                    FakeSummaryRepository(),
+                    provider,
+                )(SummaryType.WEEKLY, range())
+
+            assertTrue(result is GenerateWorkSummaryResult.Success)
+            assertEquals(2, provider.requests.size)
+            assertEquals(provider.requests.first().userPrompt, provider.requests.last().userPrompt)
+            assertTrue(
+                provider.requests
+                    .last()
+                    .systemPrompt
+                    .contains("上一次响应缺少有效总结内容"),
+            )
+            assertTrue(
+                (result as GenerateWorkSummaryResult.Success).summary.editedContent!!.contains("总体概述"),
+            )
+        }
+
+    @Test
     fun `configured timeout bounds the complete generation and marks it retryable`() =
         runTest {
             val summaryRepository = FakeSummaryRepository()
@@ -529,6 +554,27 @@ private class InvalidJsonProvider : AiSummaryProvider {
                 model = request.model,
             ),
         )
+    }
+}
+
+private class ContentlessThenValidProvider : AiSummaryProvider {
+    val requests = mutableListOf<com.worklogai.app.ai.model.AiSummaryRequest>()
+    override val providerId: String = "contentless-then-valid"
+
+    override suspend fun generateSummary(
+        request: com.worklogai.app.ai.model.AiSummaryRequest,
+    ): Result<AiSummaryResponse> {
+        requests += request
+        if (requests.size == 1) {
+            return Result.success(
+                AiSummaryResponse(
+                    content = """{"title":"工作总结"}""",
+                    providerId = providerId,
+                    model = request.model,
+                ),
+            )
+        }
+        return MockAiSummaryProvider().generateSummary(request)
     }
 }
 

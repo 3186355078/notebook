@@ -369,18 +369,17 @@ class ModelSummaryGenerator
                         ),
                     )
                 },
-                onFailure = { requestRepair(provider, request, skillRequest, response.content) },
+                onFailure = { requestRepair(provider, request, skillRequest) },
             )
 
         private suspend fun requestRepair(
             provider: AiSummaryProvider,
             request: AiSummaryRequest,
             skillRequest: WorkSummarySkillRequest,
-            invalidContent: String,
         ): Result<ModelSummary> {
             val repairRequest =
                 request.copy(
-                    userPrompt = "仅修复以下内容为符合约定结构的 JSON。不要添加输入中没有的内容：\n$invalidContent",
+                    systemPrompt = "${request.systemPrompt}\n$REPAIR_SYSTEM_INSTRUCTION",
                 )
             return provider.generateSummary(repairRequest).flatMapSuspend(
                 onFailure = { error -> Result.failure(error) },
@@ -398,6 +397,8 @@ class ModelSummaryGenerator
     }
 
 private const val MILLIS_PER_SECOND = 1_000L
+private const val REPAIR_SYSTEM_INSTRUCTION =
+    "上一次响应缺少有效总结内容或格式无效。请根据原始输入重新生成完整 JSON；不得只返回标题或空数组。"
 
 internal sealed interface GenerationPreparation {
     data class Ready(

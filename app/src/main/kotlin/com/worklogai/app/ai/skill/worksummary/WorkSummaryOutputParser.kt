@@ -22,8 +22,8 @@ class DefaultWorkSummaryOutputParser
         ): Result<WorkSummaryResult> =
             runCatching {
                 val rawJson = rawContent.extractJsonObject() ?: throw WorkSummarySkillException()
-                val decoded = json.decodeFromString<WorkSummaryResult>(rawJson)
-                decoded.sanitize(request)
+                val decoded = json.decodeFromString<WorkSummaryResult>(rawJson).sanitize(request)
+                decoded.takeIf(WorkSummaryResult::hasSubstantiveContent) ?: throw WorkSummarySkillException()
             }
     }
 
@@ -69,6 +69,18 @@ private fun WorkSummaryResult.sanitize(request: WorkSummarySkillRequest): WorkSu
         highlights = highlights.sanitizeItems(allowedDates),
     )
 }
+
+private fun WorkSummaryResult.hasSubstantiveContent(): Boolean =
+    overview.isNotBlank() ||
+        completedItems.isNotEmpty() ||
+        inProgressItems.isNotEmpty() ||
+        problemsAndSolutions.isNotEmpty() ||
+        keyDecisions.isNotEmpty() ||
+        metrics.isNotEmpty() ||
+        unfinishedItems.isNotEmpty() ||
+        nextActions.isNotEmpty() ||
+        risks.isNotEmpty() ||
+        highlights.isNotEmpty()
 
 private fun List<SummaryItem>.sanitizeItems(allowedDates: Set<String>): List<SummaryItem> =
     asSequence()

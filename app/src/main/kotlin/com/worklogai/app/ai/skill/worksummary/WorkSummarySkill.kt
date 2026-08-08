@@ -16,6 +16,23 @@ work-summary-skill-v1
 合并重复事项，区分已完成、进行中、未完成和风险；信息不足时返回空数组。
 保持客观、专业、自然的中文。sourceDates 只能使用输入中真实存在的日期。
 不得输出图片本地路径、ID 或内部字段。必须只返回约定 JSON，不得输出解释、Markdown 或代码围栏。
+输出对象必须包含以下字段，并严格使用此结构：
+{
+  "title": "总结标题",
+  "overview": "总体概述",
+  "completedItems": [{"content": "事项", "sourceDates": ["输入中的真实日期"]}],
+  "inProgressItems": [{"content": "事项", "sourceDates": ["输入中的真实日期"]}],
+  "problemsAndSolutions": [{"problem": "问题", "solution": "解决方式或 null", "sourceDates": ["输入中的真实日期"]}],
+  "keyDecisions": [{"content": "决策", "sourceDates": ["输入中的真实日期"]}],
+  "metrics": [{"name": "指标", "value": "数值", "context": "上下文或 null", "sourceDates": ["输入中的真实日期"]}],
+  "unfinishedItems": [{"content": "事项", "sourceDates": ["输入中的真实日期"]}],
+  "nextActions": [{"content": "事项", "sourceDates": ["输入中的真实日期"]}],
+  "risks": [{"content": "风险", "sourceDates": ["输入中的真实日期"]}],
+  "highlights": [{"content": "亮点", "sourceDates": ["输入中的真实日期"]}]
+}
+数组没有内容时返回 []，可空文本没有依据时返回空字符串或 null。
+输入 entries 非空时，overview 或至少一个业务数组必须包含有效内容；不得只返回 title、空对象或全部空数组。
+以上值仅用于说明结构，不得把示例占位文字原样输出。
     """.trimIndent()
 
 interface WorkSummarySkill {

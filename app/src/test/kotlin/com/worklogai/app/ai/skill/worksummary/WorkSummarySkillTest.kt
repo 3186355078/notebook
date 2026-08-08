@@ -97,6 +97,39 @@ class WorkSummarySkillTest {
     }
 
     @Test
+    fun `parser rejects title-only and otherwise contentless summaries`() {
+        val parser = DefaultWorkSummaryOutputParser()
+
+        assertTrue(parser.parse("{}", request).isFailure)
+        assertTrue(parser.parse("""{"title":"工作总结"}""", request).isFailure)
+        assertTrue(
+            parser
+                .parse(
+                    """{"title":"工作总结","overview":" ","completedItems":[],"nextActions":[]}""",
+                    request,
+                ).isFailure,
+        )
+    }
+
+    @Test
+    fun `parser accepts an overview as substantive summary content`() {
+        val parsed =
+            DefaultWorkSummaryOutputParser()
+                .parse(
+                    """{"title":"工作周报","overview":"完成了本周接口联调。"}""",
+                    request,
+                ).getOrThrow()
+
+        assertEquals("完成了本周接口联调。", parsed.overview)
+    }
+
+    @Test
+    fun `system prompt defines the complete output contract`() {
+        assertTrue(WORK_SUMMARY_SYSTEM_PROMPT.contains("\"completedItems\""))
+        assertTrue(WORK_SUMMARY_SYSTEM_PROMPT.contains("不得只返回 title"))
+    }
+
+    @Test
     fun `parser only keeps source dates that supplied model input`() {
         val response =
             """
