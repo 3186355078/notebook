@@ -323,7 +323,14 @@ class OfflineWorkEntryRepositoryTest {
 
             assertTrue(results.all { it is com.worklogai.app.core.common.result.DataResult.Success })
             assertEquals(1, database.workEntryDao().getAllIncludingDeleted().size)
-            assertEquals(2, repository.getEntry(date).successValue()!!.blocks.size)
+            assertEquals(
+                2,
+                repository
+                    .getEntry(date)
+                    .successValue()!!
+                    .blocks
+                    .size,
+            )
         }
     }
 
