@@ -1,5 +1,6 @@
 package com.worklogai.app.ai.usecase
 
+import com.worklogai.app.ai.model.AiProviderError
 import com.worklogai.app.ai.model.AiProviderException
 import com.worklogai.app.ai.model.AiResponseFormat
 import com.worklogai.app.ai.model.AiSummaryRequest
@@ -30,6 +31,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -330,7 +332,12 @@ class ModelSummaryGenerator
         private val providerFactory: AiSummaryProviderFactory,
         private val workSummarySkill: WorkSummarySkill,
     ) {
-        internal suspend fun generate(context: GenerationContext): Result<ModelSummary> {
+        internal suspend fun generate(context: GenerationContext): Result<ModelSummary> =
+            withTimeoutOrNull(context.settings.timeoutSeconds * MILLIS_PER_SECOND) {
+                generateWithinDeadline(context)
+            } ?: Result.failure(AiProviderException(AiProviderError.Timeout))
+
+        private suspend fun generateWithinDeadline(context: GenerationContext): Result<ModelSummary> {
             val provider = providerFactory.activeProvider()
             val request =
                 AiSummaryRequest(
@@ -362,18 +369,17 @@ class ModelSummaryGenerator
                         ),
                     )
                 },
-                onFailure = { requestRepair(provider, request, skillRequest, response.content) },
+                onFailure = { requestRepair(provider, request, skillRequest) },
             )
 
         private suspend fun requestRepair(
             provider: AiSummaryProvider,
             request: AiSummaryRequest,
             skillRequest: WorkSummarySkillRequest,
-            invalidContent: String,
         ): Result<ModelSummary> {
             val repairRequest =
                 request.copy(
-                    userPrompt = "仅修复以下内容为符合约定结构的 JSON。不要添加输入中没有的内容：\n$invalidContent",
+                    systemPrompt = "${request.systemPrompt}\n$REPAIR_SYSTEM_INSTRUCTION",
                 )
             return provider.generateSummary(repairRequest).flatMapSuspend(
                 onFailure = { error -> Result.failure(error) },
@@ -389,6 +395,10 @@ class ModelSummaryGenerator
             )
         }
     }
+
+private const val MILLIS_PER_SECOND = 1_000L
+private const val REPAIR_SYSTEM_INSTRUCTION =
+    "上一次响应缺少有效总结内容或格式无效。请根据原始输入重新生成完整 JSON；不得只返回标题或空数组。"
 
 internal sealed interface GenerationPreparation {
     data class Ready(

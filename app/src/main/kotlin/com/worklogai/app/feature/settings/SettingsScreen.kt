@@ -118,7 +118,7 @@ internal fun SettingsContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(WorkLogSpacing.largePlus),
-        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraLarge),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.largePlus),
     ) {
         WorkLogPageHeader(
             eyebrow = "偏好与安全",

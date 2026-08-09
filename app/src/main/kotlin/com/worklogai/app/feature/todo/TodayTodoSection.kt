@@ -50,6 +50,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -155,7 +157,7 @@ private fun QuickTodoInput(
     state: TodayTodoUiState,
     onAction: (TodayTodoAction) -> Unit,
 ) {
-    OutlinedTextField(
+    TextField(
         value = state.quickTitle,
         onValueChange = { onAction(TodayTodoAction.QuickTitleChanged(it)) },
         placeholder = { Text("添加今日待办……") },
@@ -178,6 +180,15 @@ private fun QuickTodoInput(
                 Icon(Icons.Outlined.Add, contentDescription = "添加待办")
             }
         },
+        shape = MaterialTheme.shapes.medium,
+        colors =
+            TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant,
+            ),
         modifier = Modifier.fillMaxWidth().testTag("quick_todo_input"),
     )
 }
@@ -230,9 +241,9 @@ internal fun TodoItem(
     val containerColor by
         animateColorAsState(
             if (presentation.isDragging) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+                MaterialTheme.colorScheme.primaryContainer
             } else {
-                MaterialTheme.colorScheme.surfaceContainerLow
+                MaterialTheme.colorScheme.surfaceContainerLowest
             },
             label = "todo-drag-color",
         )
@@ -273,14 +284,14 @@ internal fun TodoItem(
                         )
                 },
         color = containerColor,
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.medium,
         tonalElevation = elevation,
         shadowElevation = elevation,
         border =
             if (presentation.isDragging) {
                 BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
             } else {
-                null
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
             },
     ) {
         Row(
@@ -291,7 +302,7 @@ internal fun TodoItem(
                 modifier =
                     Modifier
                         .fillMaxHeight()
-                        .width(4.dp)
+                        .width(3.dp)
                         .background(todoPriorityColor(todo.priority)),
             )
             IconButton(

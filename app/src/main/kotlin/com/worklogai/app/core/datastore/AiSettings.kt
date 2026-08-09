@@ -111,7 +111,7 @@ private fun toAiSettings(preferences: Preferences): AiSettings =
 private const val DEFAULT_TIMEOUT_SECONDS = 60
 private const val DEFAULT_TEMPERATURE = 0.2
 private const val MIN_TIMEOUT_SECONDS = 10
-private const val MAX_TIMEOUT_SECONDS = 120
+internal const val MAX_TIMEOUT_SECONDS = 120
 private const val MIN_TEMPERATURE = 0.0
 private const val MAX_TEMPERATURE = 1.0
 
