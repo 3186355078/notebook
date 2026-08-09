@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -26,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
 import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.markdown.WorkLogMarkdown
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.history.DateRange
 import com.worklogai.app.core.model.SummaryType
@@ -138,7 +139,7 @@ internal fun SummaryContent(
                     selected = state.summaryType == type,
                     onClick = { onAction(SummaryAction.ChangeType(type)) },
                     shape =
-                        androidx.compose.material3.SegmentedButtonDefaults.itemShape(
+                        SegmentedButtonDefaults.itemShape(
                             index,
                             SummaryType.entries.size,
                         ),
@@ -254,28 +255,53 @@ private fun SummaryEditorOrReader(
     onAction: (SummaryAction) -> Unit,
 ) {
     if (state.isEditing) {
-        OutlinedTextField(
-            value = state.editingText,
-            onValueChange = { value -> onAction(SummaryAction.EditingTextChanged(value)) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("编辑总结") },
-            minLines = 12,
-        )
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf(false to "编辑", true to "预览").forEachIndexed { index, (preview, label) ->
+                SegmentedButton(
+                    selected = state.isEditingPreview == preview,
+                    onClick = { onAction(SummaryAction.ChangeEditingPreview(preview)) },
+                    shape =
+                        SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = 2,
+                        ),
+                    label = { Text(label) },
+                )
+            }
+        }
+        if (state.isEditingPreview) {
+            if (state.editingText.isBlank()) {
+                Text(
+                    "暂无可预览内容",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                WorkLogMarkdown(
+                    markdown = state.editingText,
+                    modifier = Modifier.padding(horizontal = WorkLogSpacing.small),
+                )
+            }
+        } else {
+            OutlinedTextField(
+                value = state.editingText,
+                onValueChange = { value -> onAction(SummaryAction.EditingTextChanged(value)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("编辑 Markdown") },
+                supportingText = { Text("使用 Markdown 编写，切换到预览查看阅读效果") },
+                minLines = 12,
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
             Button(onClick = { onAction(SummaryAction.SaveEditing) }) { Text("保存") }
             TextButton(onClick = { onAction(SummaryAction.CancelEditing) }) { Text("取消") }
         }
     } else {
         state.displayContent?.let { content ->
-            WorkLogContentSurface {
-                SelectionContainer {
-                    Text(
-                        content,
-                        modifier = Modifier.padding(WorkLogSpacing.large),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
+            WorkLogMarkdown(
+                markdown = content,
+                modifier = Modifier.padding(horizontal = WorkLogSpacing.small),
+            )
         }
     }
 }

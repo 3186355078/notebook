@@ -34,6 +34,7 @@ data class SummaryUiState(
     val isOutdated: Boolean = false,
     val wasInputTruncated: Boolean = false,
     val isEditing: Boolean = false,
+    val isEditingPreview: Boolean = false,
     val editingText: String = "",
     val errorMessage: String? = null,
 ) {
@@ -64,6 +65,10 @@ sealed interface SummaryAction {
 
     data class EditingTextChanged(
         val value: String,
+    ) : SummaryAction
+
+    data class ChangeEditingPreview(
+        val enabled: Boolean,
     ) : SummaryAction
 
     data object SaveEditing : SummaryAction
