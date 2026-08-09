@@ -1,14 +1,14 @@
 param(
-    [string]$Version = "0.4.1",
-    [int]$VersionCode = 6,
+    [string]$Version = "0.4.2",
+    [int]$VersionCode = 7,
     [string]$CertificateSha256 = "15668D9F84061C17CF099A99FF84E1610113204F86311C1044454A30CFC3E801",
     [string]$SdkRoot = "D:\SDK",
-    [int]$InstrumentationTests = 67,
+    [int]$InstrumentationTests = 89,
     [int]$RoomVersion = 2,
     [int]$BackupFormatVersion = 2,
     [string]$SchemaSha256 = "944C04F92F7633FCFCA2DB407588B850B981AC7B2E4541A0498505330D40862D",
-    [int]$PullRequestNumber = 4,
-    [string]$MergeCommit = "4b6b603870e757724518375eb402fcbb6fc1ce54"
+    [int]$PullRequestNumber = 5,
+    [string]$MergeCommit = "b01163e4d7c2d1f0f494b95bca8d4be7fe1379b6"
 )
 
 $ErrorActionPreference = "Stop"
@@ -116,6 +116,8 @@ Build date: $builtAt
 
 JVM/Robolectric: $tests tests, $failures failures, $errors errors, $skipped skipped, $($testSuites.Count) suites
 Android 16 instrumentation baseline: $InstrumentationTests tests, 0 failures, 0 errors, 0 skipped
+Markdown/Summary directed tests: 24 tests, 0 failures, 0 errors, 0 skipped
+Landscape validation: 1 test, 0 failures, 0 errors, 0 skipped
 Release lint: passed (see app/build/reports/lint-results-release.html)
 R8/minification: enabled
 Resource shrinking: enabled
@@ -134,13 +136,15 @@ Migration: 1 -> 2; destructive migration disabled
 Backup format version: $BackupFormatVersion
 Backup compatibility: v1 read/restore and v2 Todo backup/restore validated
 Validated device: HONOR PPG-AN00, Android 16 / API 36 (serial number omitted)
-Upgrade validation: 0.4.0 -> 0.4.1 signed in-place upgrade passed
-UI acceptance: light/dark/dynamic color, 1.5x font, landscape NavigationRail, Today/History/Summary/Settings/Data Management passed
-Historical backfill and Todo navigation regression: passed
+Upgrade validation: 0.4.1 -> 0.4.2 signed in-place upgrade passed
+Old Summary compatibility: original Markdown, edited content, stale state, plain text, malformed input, and long content validated without data migration
+Markdown security: HTML/JavaScript are inert text; links do not open; remote images are not loaded
+UI acceptance: rich Markdown, edit/preview, light/dark/dynamic color, 1.5x font, landscape, and TalkBack passed
+Historical backfill, Todo navigation, Backup v2, and WorkManager smoke tests: passed
 Stability: FATAL/ANR/OOM = 0/0/0
 Compatibility waiver: Android 10-13 second-device/emulator testing was explicitly skipped by the user and is not claimed as passed.
 
-Known limitations: Todo reminders, recurring tasks, and subtasks are not implemented; backups are not encrypted; other OEM SAF/background behavior and external OpenAI-compatible services remain internal-trial observations.
+Known limitations: Markdown tables and footnotes are not supported; links are not clickable; remote images are not loaded; code blocks have no copy action or complex syntax highlighting; backups are not encrypted; Android 10-13 and other OEM SAF/background behavior remain internal-trial observations.
 No keystore, password, API key, user data, device serial number, or test backup is included in this directory.
 "@ | Set-Content -LiteralPath (Join-Path $artifactDirectory "RELEASE_REPORT.txt") -Encoding utf8
 

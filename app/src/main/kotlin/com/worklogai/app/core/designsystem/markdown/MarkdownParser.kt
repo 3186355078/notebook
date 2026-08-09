@@ -208,7 +208,7 @@ object MarkdownParser {
         ): BracketTarget? {
             val labelEnd = source.indexOf(']', labelStart)
             val hasDestinationStart = labelEnd in labelStart until end && source.getOrNull(labelEnd + 1) == '('
-            val destinationEnd = if (hasDestinationStart) source.indexOf(')', labelEnd + 2) else -1
+            val destinationEnd = if (hasDestinationStart) findDestinationEnd(labelEnd + 2, end) else -1
             return if (destinationEnd in (labelEnd + 2) until end) {
                 BracketTarget(
                     label = source.substring(labelStart, labelEnd),
@@ -219,6 +219,24 @@ object MarkdownParser {
             } else {
                 null
             }
+        }
+
+        private fun findDestinationEnd(
+            start: Int,
+            end: Int,
+        ): Int {
+            var cursor = start
+            var nestedParentheses = 0
+            while (cursor < end) {
+                when {
+                    source[cursor] == '\\' && cursor + 1 < end -> cursor++
+                    source[cursor] == '(' -> nestedParentheses++
+                    source[cursor] == ')' && nestedParentheses > 0 -> nestedParentheses--
+                    source[cursor] == ')' -> return cursor
+                }
+                cursor++
+            }
+            return -1
         }
 
         private fun parseDelimited(

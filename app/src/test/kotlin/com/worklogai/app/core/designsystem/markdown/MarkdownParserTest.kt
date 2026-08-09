@@ -106,6 +106,15 @@ class MarkdownParserTest {
     }
 
     @Test
+    fun `consumes balanced parentheses in inert link destination`() {
+        val document = parse("[Safe label](javascript:alert(1))")
+        val link = paragraph("[Safe label](javascript:alert(1))").single() as MarkdownInline.Link
+
+        assertEquals("Safe label", document.toPlainText())
+        assertEquals("javascript:alert(1)", link.destination)
+    }
+
+    @Test
     fun `plain text stays a paragraph`() = assertEquals("本周完成了 A、B、C。", parse("本周完成了 A、B、C。").toPlainText())
 
     @Test
