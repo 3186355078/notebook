@@ -6,7 +6,7 @@
 - [x] PR #4 已以普通 Merge Commit `4b6b603870e757724518375eb402fcbb6fc1ce54` 合入 `main`。
 - [x] PR Base 为 `main`，Head 为 `feature/v0.4.1-ui-ux-polish`；未 force push，也未删除远程功能分支。
 - [x] `v0.1.0-internal` 至 `v0.4.0-internal` 均保持原指向。
-- [ ] 0.4.1 最终 Release 提交、`main` 推送和 `v0.4.1-internal` 推送将在最终 HEAD 重建验收后完成。
+- [x] 0.4.1 最终 Release 提交后从该 HEAD 重建；`main` 与 `v0.4.1-internal` 仅在重建验收通过后推送。
 
 ## 版本与测试
 
@@ -16,9 +16,9 @@
 - [x] Android 16 HONOR Debug Instrumentation：67/67；真实横屏 NavigationRail 专项：1/1；failures/errors/skipped 均为 0。
 - [x] Debug Lint：0 errors、35 warnings；本轮关注的 UI/Accessibility 阻断项为 0。
 - [x] Detekt、ktlint 通过。
-- [ ] Release Lint 通过后勾选。
-- [ ] R8/minification 与资源压缩确认启用。
-- [ ] 0.4.0/code 5 使用同一证书覆盖升级到 0.4.1/code 6，数据与设置保持。
+- [x] Debug/Release Lint 均为 0 errors、35 warnings；本轮未新增 UI/Accessibility blocker。
+- [x] R8/minification 与资源压缩已启用；mapping、seeds、usage、configuration 随本地发布包归档。
+- [x] 0.4.0/code 5 使用同一证书覆盖升级到 0.4.1/code 6；首次安装时间、业务数据与设置保持。
 
 ## 历史补录
 
@@ -52,11 +52,12 @@
 - [x] `debuggable=false`、`usesCleartextTraffic=false`、`allowBackup=false`。
 - [x] 合并 Manifest 权限与 0.3.1 完全一致，仅保留应用功能及 WorkManager 所需权限。
 - [x] APK/AAB 未发现 dev/debug/test 入口、测试 Key、Keystore、密码、私有路径或测试备份。
-- [x] 最终 HEAD 的 APK/AAB SHA-256 与 R8 mapping 在忽略目录 `release-artifacts/0.4.0/` 的 `SHA256SUMS.txt` 和 `RELEASE_REPORT.txt` 中归档。
+- [x] AAB 已通过 `jarsigner`；当前环境没有可执行的独立 bundletool CLI，因此 bundletool validate 未执行且不宣称通过。
+- [x] 最终 HEAD 的 APK/AAB SHA-256 与 R8 mapping 在忽略目录 `release-artifacts/0.4.1/` 的 `SHA256SUMS.txt` 和 `RELEASE_REPORT.txt` 中归档。
 
 ## 兼容性风险接受
 
-> 用户明确跳过 Android 10～13 第二台真机和模拟器兼容测试。该项未执行，不宣称通过，作为 0.4.0 内部试用风险接受。
+> 用户明确跳过 Android 10～13 第二台真机和模拟器兼容测试。该项未执行，不宣称通过，作为 0.4.1 内部试用风险接受。
 
 - 完整矩阵仅在 HONOR PPG-AN00、Android 16 / API 36 真机执行；不记录设备序列号。
 - Dynamic Color 受壁纸影响；其他 OEM SAF Provider、长期后台行为和外部 OpenAI Compatible 服务继续在内部试用期观察。
