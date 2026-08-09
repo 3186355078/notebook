@@ -124,17 +124,20 @@ class DeviceSummaryUiIntegrationTest {
         ActivityScenario.launch<MainActivity>(summaryIntent(context, type, period)).use {
             composeRule.waitForText(MANUAL_EDIT)
             composeRule.onNodeWithContentDescription("更多总结操作").performClick()
+            composeRule.waitForText("恢复 AI 原始版本")
             composeRule.onNodeWithText("恢复 AI 原始版本").performClick()
             composeRule.onNode(hasText("取消") and hasClickAction()).performClick()
             composeRule.onNodeWithText(MANUAL_EDIT).assertIsDisplayed()
 
             composeRule.onNodeWithContentDescription("更多总结操作").performClick()
+            composeRule.waitForText("恢复 AI 原始版本")
             composeRule.onNodeWithText("恢复 AI 原始版本").performClick()
             composeRule.onNode(hasText("恢复") and hasClickAction()).performClick()
-            composeRule.waitForText(formatted)
-            composeRule.onNodeWithText(formatted).assertIsDisplayed()
+            composeRule.waitForText(RESTORED_OVERVIEW)
+            composeRule.onNodeWithText(RESTORED_OVERVIEW).assertIsDisplayed()
 
             composeRule.onNodeWithContentDescription("更多总结操作").performScrollTo().performClick()
+            composeRule.waitForText("复制")
             composeRule.onNodeWithText("复制").performClick()
             composeRule.waitForText("已复制")
             val clipboard = context.getSystemService(ClipboardManager::class.java)
@@ -149,8 +152,8 @@ class DeviceSummaryUiIntegrationTest {
         val persisted = dependencies.database().workSummaryDao().getByPeriod(type, period.start, period.end)
         assertEquals(formatted, persisted?.editedContent)
         ActivityScenario.launch<MainActivity>(summaryIntent(context, type, period)).use {
-            composeRule.waitForText(formatted)
-            composeRule.onNodeWithText(formatted).assertIsDisplayed()
+            composeRule.waitForText(RESTORED_OVERVIEW)
+            composeRule.onNodeWithText(RESTORED_OVERVIEW).assertIsDisplayed()
         }
     }
 
@@ -172,6 +175,7 @@ class DeviceSummaryUiIntegrationTest {
 
     private companion object {
         const val MANUAL_EDIT = "Stage 9 manual summary edit"
+        const val RESTORED_OVERVIEW = "Controlled original overview"
         const val UI_TIMEOUT_MILLIS = 15_000L
         val NOW: Instant = Instant.parse("2026-07-13T00:00:00Z")
         val WEEKLY_PERIOD = DateRange(LocalDate.of(2026, 7, 6), LocalDate.of(2026, 7, 12))

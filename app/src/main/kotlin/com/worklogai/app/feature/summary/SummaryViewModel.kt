@@ -66,6 +66,8 @@ class SummaryViewModel
             when (action) {
                 SummaryAction.CancelEditing -> changeEditing(false)
                 SummaryAction.CancelGeneration -> cancelGeneration()
+                is SummaryAction.ChangeEditingPreview ->
+                    _uiState.value = _uiState.value.copy(isEditingPreview = action.enabled)
                 is SummaryAction.ChangeType -> changeType(action.type)
                 SummaryAction.ConfirmRegenerate,
                 SummaryAction.RetryGeneration,
@@ -92,6 +94,7 @@ class SummaryViewModel
             _uiState.value =
                 _uiState.value.copy(
                     isEditing = isEditing,
+                    isEditingPreview = false,
                     editingText =
                         _uiState.value.summary
                             ?.displayContent
@@ -109,6 +112,7 @@ class SummaryViewModel
                     period = period,
                     selectedMonth = YearMonth.from(today),
                     isEditing = false,
+                    isEditingPreview = false,
                 )
             load()
         }
@@ -126,6 +130,7 @@ class SummaryViewModel
                     period = dependencies.workPeriodCalculator.periodContaining(state.summaryType, next),
                     selectedMonth = YearMonth.from(next),
                     isEditing = false,
+                    isEditingPreview = false,
                 )
             load()
         }
@@ -136,6 +141,7 @@ class SummaryViewModel
                     period = dependencies.workPeriodCalculator.periodContaining(_uiState.value.summaryType, today),
                     selectedMonth = YearMonth.from(today),
                     isEditing = false,
+                    isEditingPreview = false,
                 )
             load()
         }
@@ -199,6 +205,7 @@ class SummaryViewModel
                             _uiState.value.copy(
                                 summary = summary.copy(editedContent = _uiState.value.editingText),
                                 isEditing = false,
+                                isEditingPreview = false,
                             )
                 }
             }
@@ -223,6 +230,7 @@ class SummaryViewModel
                             _uiState.value.copy(
                                 summary = summary.copy(editedContent = original),
                                 isEditing = false,
+                                isEditingPreview = false,
                                 editingText = "",
                                 errorMessage = null,
                             )

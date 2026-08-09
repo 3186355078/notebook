@@ -1,5 +1,19 @@
 # 变更日志
 
+## 0.4.2-dev
+
+### Improved
+
+- Summary 阅读模式支持原生 Compose Markdown 富文本渲染，标题、段落、列表、粗体、斜体、引用、分隔线与代码以清晰的报告排版展示。
+- 支持有序列表、最多三级嵌套列表和只读任务列表，并为标题与任务状态提供 TalkBack 语义。
+- Summary 编辑模式继续保留 Markdown 原文，并新增“编辑 / 预览”切换，保存后立即呈现阅读效果。
+- Markdown 链接仅显示可读标签，远程图片仅显示替代文字；不执行 HTML、JavaScript 或外部网络请求。
+
+### Data Compatibility
+
+- Summary、Markdown 导出与 Backup v2 继续保存原始 Markdown，不新增渲染字段。
+- Room Schema、Migration 与 backupFormatVersion 均无变化。
+
 ## 0.4.1 - 内部体验优化版
 
 ### Improved

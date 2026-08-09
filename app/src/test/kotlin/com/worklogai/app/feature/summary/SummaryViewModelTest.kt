@@ -172,6 +172,47 @@ class SummaryViewModelTest {
         )
     }
 
+    @Test
+    fun `editing preview changes presentation without changing markdown draft`() {
+        val viewModel = viewModel()
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        viewModel.onAction(SummaryAction.StartEditing)
+        viewModel.onAction(SummaryAction.ChangeEditingPreview(true))
+
+        assertTrue(viewModel.uiState.value.isEditing)
+        assertTrue(viewModel.uiState.value.isEditingPreview)
+        assertEquals(MANUAL_EDIT, viewModel.uiState.value.editingText)
+    }
+
+    @Test
+    fun `cancel editing resets preview mode without persisting`() {
+        val viewModel = viewModel()
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+        viewModel.onAction(SummaryAction.StartEditing)
+        viewModel.onAction(SummaryAction.ChangeEditingPreview(true))
+
+        viewModel.onAction(SummaryAction.CancelEditing)
+
+        assertFalse(viewModel.uiState.value.isEditing)
+        assertFalse(viewModel.uiState.value.isEditingPreview)
+        coVerify(exactly = 0) { summaryRepository.updateEditedContent(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `copy keeps markdown source instead of rendered plain text`() {
+        val markdownSummary = existing.copy(editedContent = "## 完成事项\n\n- **完成接口**")
+        coEvery { loader.load(any(), any()) } returns
+            SummaryPeriodLoadResult.Success(1, 1, markdownSummary, markdownSummary.sourceHash)
+        val viewModel = viewModel()
+        mainDispatcherRule.dispatcher.scheduler.runCurrent()
+
+        viewModel.onAction(SummaryAction.CopySummary)
+
+        val event = runBlocking { withTimeout(1_000) { viewModel.events.first() } }
+        assertEquals(SummaryUiEvent.CopyText(markdownSummary.editedContent!!), event)
+    }
+
     private fun viewModel() =
         SummaryViewModel(
             SummaryViewModelDependencies(
