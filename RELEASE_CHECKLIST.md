@@ -1,22 +1,24 @@
-# WorkLog AI 0.4.0 内部试用发布检查清单
+# WorkLog AI 0.4.1 内部试用发布检查清单
 
 ## GitHub 与 Git
 
-- [x] Draft PR #3 已完成历史补录实现、数据协议和敏感信息审查。
-- [x] PR #3 已转为 Ready，并以普通 Merge Commit 合入 `main`。
-- [x] PR Base 为 `main`，Head 为 `feature/v0.4.0-history-backfill`；未 force push，也未删除远程功能分支。
-- [x] PR #3 merge commit：`f47baf3b9a22c2e5f3b35f5ffb35f4eebca89645`。
-- [x] `v0.1.0-internal`、`v0.2.0-internal`、`v0.3.0-internal`、`v0.3.1-internal` 均保持原指向。
-- [x] 0.4.0 最终 Release 提交、`main` 推送和 `v0.4.0-internal` 推送在最终 HEAD 重建验收后完成。
+- [x] PR #4 已完成 AI 总结稳定性修复和 UI/UX 精修审查。
+- [x] PR #4 已以普通 Merge Commit `4b6b603870e757724518375eb402fcbb6fc1ce54` 合入 `main`。
+- [x] PR Base 为 `main`，Head 为 `feature/v0.4.1-ui-ux-polish`；未 force push，也未删除远程功能分支。
+- [x] `v0.1.0-internal` 至 `v0.4.0-internal` 均保持原指向。
+- [ ] 0.4.1 最终 Release 提交、`main` 推送和 `v0.4.1-internal` 推送将在最终 HEAD 重建验收后完成。
 
 ## 版本与测试
 
-- [x] versionName：0.4.0；versionCode：5；Release applicationId：`com.worklogai.app`。
-- [x] JVM/Robolectric：275/275，44 suites，failures/errors/skipped 均为 0。
-- [x] Android 16 HONOR Debug Instrumentation：65/65，failures/errors/skipped 均为 0。
-- [x] Debug Lint、Release Lint、Detekt、ktlint 通过。
-- [x] R8/minification 与资源压缩保持启用。
-- [x] 0.3.1/code 4 使用同一证书覆盖升级到 0.4.0/code 5，数据未清除。
+- [x] versionName：0.4.1；versionCode：6；Release applicationId：`com.worklogai.app`。
+- [x] Room database version：2；backupFormatVersion：2；Schema 1/2 与 Migration 均未修改。
+- [x] JVM/Robolectric：286/286，44 suites，failures/errors/skipped 均为 0。
+- [x] Android 16 HONOR Debug Instrumentation：67/67；真实横屏 NavigationRail 专项：1/1；failures/errors/skipped 均为 0。
+- [x] Debug Lint：0 errors、35 warnings；本轮关注的 UI/Accessibility 阻断项为 0。
+- [x] Detekt、ktlint 通过。
+- [ ] Release Lint 通过后勾选。
+- [ ] R8/minification 与资源压缩确认启用。
+- [ ] 0.4.0/code 5 使用同一证书覆盖升级到 0.4.1/code 6，数据与设置保持。
 
 ## 历史补录
 

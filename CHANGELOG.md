@@ -1,5 +1,26 @@
 # 变更日志
 
+## 0.4.1 - 内部体验优化版
+
+### Improved
+
+- 统一 Material 3 浅色和深色 Surface 层级，优化品牌青蓝色与系统色协调。
+- 优化 Today 日期、保存状态、Todo 密度、优先级和工作内容层级。
+- 优化 History 的补记录、搜索与时间线布局。
+- 优化 Summary 阅读体验和周期切换，并改善 Settings 与 Data Management 的区块节奏。
+- 优化横屏内容宽度和 NavigationRail 体验，保持 Dynamic Color、大字体与 TalkBack 支持。
+
+### Fixed
+
+- 修复真实 OpenAI Compatible 服务长时间无响应时总结界面持续停留在生成状态的问题。
+- 修复空白或结构不完整的模型响应被保存为仅含标题的总结内容的问题。
+
+### Data Compatibility
+
+- Room Schema 无变化，Room database version 继续为 2。
+- Migration 无变化。
+- Backup 协议无变化，backupFormatVersion 继续为 2。
+
 ## 0.4.0 - 内部试用版（2026-08-08）
 
 ### Added
