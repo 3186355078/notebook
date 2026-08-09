@@ -17,10 +17,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +40,7 @@ internal fun HistorySearchBar(
     onQueryChanged: (String) -> Unit,
     onClear: () -> Unit,
 ) {
-    OutlinedTextField(
+    TextField(
         value = query,
         onValueChange = onQueryChanged,
         modifier =
@@ -48,7 +49,7 @@ internal fun HistorySearchBar(
                 .padding(horizontal = WorkLogSpacing.largePlus, vertical = WorkLogSpacing.small),
         singleLine = true,
         shape = MaterialTheme.shapes.medium,
-        label = { Text("搜索工作记录") },
+        placeholder = { Text("搜索工作记录") },
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = "搜索历史记录") },
         trailingIcon = {
             when {
@@ -59,6 +60,14 @@ internal fun HistorySearchBar(
                     }
             }
         },
+        colors =
+            TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant,
+            ),
     )
 }
 

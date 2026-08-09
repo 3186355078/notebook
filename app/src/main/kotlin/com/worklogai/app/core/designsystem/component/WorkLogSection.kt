@@ -21,7 +21,7 @@ fun WorkLogSection(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
     ) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         description?.let {
@@ -33,7 +33,7 @@ fun WorkLogSection(
         }
         Column(
             modifier = Modifier.fillMaxWidth().padding(contentPadding),
-            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
             content = { content() },
         )
     }

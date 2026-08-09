@@ -35,6 +35,7 @@ fun SaveStatusIndicator(
             text = label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = modifier.semantics { stateDescription = label },
+            style = MaterialTheme.typography.labelMedium,
         )
     }
 }

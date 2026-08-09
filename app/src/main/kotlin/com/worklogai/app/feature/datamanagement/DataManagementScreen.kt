@@ -103,8 +103,11 @@ internal fun DataManagementContent(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(paddingValues)
-                    .padding(WorkLogSpacing.largePlus),
-            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraLarge),
+                    .padding(
+                        horizontal = WorkLogSpacing.largePlus,
+                        vertical = WorkLogSpacing.medium,
+                    ),
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.large),
         ) {
             WorkLogContentSurface(emphasized = true) {
                 Column(

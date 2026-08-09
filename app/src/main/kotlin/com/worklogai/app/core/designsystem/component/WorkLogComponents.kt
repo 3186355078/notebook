@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -35,7 +34,7 @@ fun WorkLogPageHeader(
     subtitle: String,
     modifier: Modifier = Modifier,
     eyebrow: String? = null,
-    metrics: (@Composable RowScope.() -> Unit)? = null,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -48,23 +47,23 @@ fun WorkLogPageHeader(
                 style = MaterialTheme.typography.labelLarge,
             )
         }
-        Text(
-            text = title,
-            modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.titleLarge,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
+        ) {
+            Text(
+                text = title,
+                modifier = Modifier.weight(1f).semantics { heading() },
+                style = MaterialTheme.typography.titleLarge,
+            )
+            action?.invoke()
+        }
         Text(
             text = subtitle,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
-        metrics?.let { content ->
-            Row(
-                modifier = Modifier.padding(top = WorkLogSpacing.small),
-                horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
-                content = content,
-            )
-        }
     }
 }
 
@@ -137,7 +136,7 @@ fun WorkLogContentSurface(
         modifier = modifier.fillMaxWidth(),
         color =
             if (emphasized) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f)
             } else {
                 MaterialTheme.colorScheme.surfaceContainerLow
             },
@@ -170,7 +169,7 @@ fun WorkLogActionRow(
         horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
             contentColor = MaterialTheme.colorScheme.primary,
             shape = MaterialTheme.shapes.medium,
         ) {

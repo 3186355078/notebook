@@ -181,7 +181,9 @@ class TodayScreenContentTest {
             composeRule
                 .onNodeWithTag("today_content_container")
                 .getUnclippedBoundsInRoot()
-        assertTrue(contentBounds.right - contentBounds.left <= 640.dp)
+        val contentWidth = contentBounds.right - contentBounds.left
+        assertTrue(contentWidth > 640.dp)
+        assertTrue(contentWidth <= 840.dp)
     }
 
     @Test

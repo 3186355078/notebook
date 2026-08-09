@@ -74,7 +74,7 @@ import java.util.Locale
 private const val MIN_DATE_REFRESH_DELAY_MS = 1_000L
 private const val LINKED_BLOCK_HIGHLIGHT_MILLIS = 1_500L
 private const val EDITOR_BLOCK_LIST_OFFSET = 3
-private val TODAY_WIDE_CONTENT_MAX_WIDTH = 640.dp
+private val TODAY_WIDE_CONTENT_MAX_WIDTH = 840.dp
 
 data class TodayScreenNavigation(
     val openEntry: (LocalDate) -> Unit = {},

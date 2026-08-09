@@ -39,6 +39,9 @@ class SummaryContentTest {
         }
 
         composeRule.onNodeWithText("工作总结").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("上一周").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("下一周").assertIsDisplayed()
+        composeRule.onNodeWithText("回到本周").assertIsDisplayed()
         composeRule.onNodeWithText("生成总结").assertIsDisplayed()
         composeRule.onNodeWithText("将发送该时间范围内允许用于 AI 总结的文字、图片说明和表格内容。").assertIsDisplayed()
     }

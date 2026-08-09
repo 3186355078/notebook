@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -145,12 +147,12 @@ internal fun SummaryContent(
             }
         }
         WorkLogContentSurface {
-            Column(
-                modifier = Modifier.padding(WorkLogSpacing.medium),
-                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
-            ) {
-                PeriodControls(state.summaryType, state.period, onAction)
-            }
+            PeriodControls(
+                type = state.summaryType,
+                period = state.period,
+                onAction = onAction,
+                modifier = Modifier.padding(horizontal = WorkLogSpacing.small, vertical = WorkLogSpacing.extraSmall),
+            )
         }
         Text(
             "将发送该时间范围内允许用于 AI 总结的文字、图片说明和表格内容。",
@@ -283,42 +285,35 @@ private fun PeriodControls(
     type: SummaryType,
     period: DateRange,
     onAction: (SummaryAction) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton(onClick = { onAction(SummaryAction.PreviousPeriod) }, content = {
-            Text(
-                if (type ==
-                    SummaryType.WEEKLY
-                ) {
-                    "上一周"
-                } else {
-                    "上一月"
-                },
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = { onAction(SummaryAction.PreviousPeriod) }) {
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = if (type == SummaryType.WEEKLY) "上一周" else "上一月",
             )
-        })
-        Column { Text(period.toLabel(), style = MaterialTheme.typography.titleMedium) }
-        TextButton(onClick = { onAction(SummaryAction.NextPeriod) }, content = {
-            Text(
-                if (type ==
-                    SummaryType.WEEKLY
-                ) {
-                    "下一周"
-                } else {
-                    "下一月"
-                },
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.extraSmall),
+        ) {
+            Text(period.toLabel(), style = MaterialTheme.typography.titleSmall)
+            TextButton(onClick = { onAction(SummaryAction.ReturnToCurrentPeriod) }) {
+                Text(if (type == SummaryType.WEEKLY) "回到本周" else "回到本月")
+            }
+        }
+        IconButton(onClick = { onAction(SummaryAction.NextPeriod) }) {
+            Icon(
+                Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = if (type == SummaryType.WEEKLY) "下一周" else "下一月",
             )
-        })
-    }
-    TextButton(onClick = { onAction(SummaryAction.ReturnToCurrentPeriod) }) {
-        Text(
-            if (type ==
-                SummaryType.WEEKLY
-            ) {
-                "回到本周"
-            } else {
-                "回到本月"
-            },
-        )
+        }
     }
 }
 

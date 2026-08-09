@@ -179,6 +179,8 @@ class VisualAcceptanceCaptureTest {
             )
         }
 
+        composeRule.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(50, 2_000)
         captureCurrentScene("landscape.png")
     }
 

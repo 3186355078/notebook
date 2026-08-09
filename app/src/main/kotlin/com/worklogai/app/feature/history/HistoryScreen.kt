@@ -1,5 +1,6 @@
 package com.worklogai.app.feature.history
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,10 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -126,8 +127,8 @@ internal fun HistoryScreenContent(
             WorkLogPageHeader(
                 title = "工作回顾",
                 subtitle = "按日期、周期或关键词快速找到过去的工作脉络",
-                metrics = {
-                    OutlinedButton(
+                action = {
+                    FilledTonalButton(
                         onClick = onBackfillClick,
                         modifier = Modifier.testTag("history_backfill_action"),
                     ) {
@@ -140,7 +141,7 @@ internal fun HistoryScreenContent(
                         start = WorkLogSpacing.largePlus,
                         top = WorkLogSpacing.large,
                         end = WorkLogSpacing.largePlus,
-                        bottom = WorkLogSpacing.small,
+                        bottom = WorkLogSpacing.extraSmall,
                     ),
             )
             HistorySearchBar(
@@ -238,8 +239,13 @@ private fun HistoryItemCard(
                 .fillMaxWidth()
                 .semantics { contentDescription = "打开${item.dateLabel}工作记录：${item.previewText}" }
                 .clickable(onClick = onOpen),
-        color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        shape = MaterialTheme.shapes.medium,
+        border =
+            BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+            ),
     ) {
         Row(
             modifier =
