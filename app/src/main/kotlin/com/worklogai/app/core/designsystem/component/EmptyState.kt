@@ -3,6 +3,7 @@ package com.worklogai.app.core.designsystem.component
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -30,18 +31,23 @@ fun EmptyState(
 ) = WorkLogEmptyState(title, body, action, modifier = modifier)
 
 @Composable
+@Suppress("LongParameterList")
 fun WorkLogEmptyState(
     title: String,
     body: String,
     action: (@Composable () -> Unit)? = null,
     icon: ImageVector = Icons.Outlined.Inbox,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     Column(
         modifier =
             modifier
-                .fillMaxSize()
-                .padding(horizontal = WorkLogSpacing.huge, vertical = WorkLogSpacing.extraLarge),
+                .let { if (compact) it.fillMaxWidth() else it.fillMaxSize() }
+                .padding(
+                    horizontal = if (compact) WorkLogSpacing.extraLarge else WorkLogSpacing.huge,
+                    vertical = if (compact) WorkLogSpacing.large else WorkLogSpacing.extraLarge,
+                ),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -53,13 +59,26 @@ fun WorkLogEmptyState(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.padding(WorkLogSpacing.medium).size(28.dp),
+                modifier =
+                    if (compact) {
+                        Modifier.padding(WorkLogSpacing.small).size(22.dp)
+                    } else {
+                        Modifier.padding(WorkLogSpacing.medium).size(28.dp)
+                    },
             )
         }
         Text(
             text = title,
-            modifier = Modifier.padding(top = WorkLogSpacing.large).semantics { heading() },
-            style = MaterialTheme.typography.titleLarge,
+            modifier =
+                Modifier
+                    .padding(top = if (compact) WorkLogSpacing.small else WorkLogSpacing.large)
+                    .semantics { heading() },
+            style =
+                if (compact) {
+                    MaterialTheme.typography.titleMedium
+                } else {
+                    MaterialTheme.typography.titleLarge
+                },
             textAlign = TextAlign.Center,
         )
         Text(

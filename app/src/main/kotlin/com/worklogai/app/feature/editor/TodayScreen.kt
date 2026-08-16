@@ -437,14 +437,14 @@ private fun QuickRecordToolbar(
     onAddImage: () -> Unit,
     onAddTable: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
+    Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
         WorkLogSectionHeader(
-            title = "快速记录",
+            title = if (isHistorical) "当日工作记录" else "今日工作记录",
             description =
                 if (isHistorical) {
-                    "从文字、图片或表格补充当天的工作"
+                    "从文字、图片或表格补充当天的工作，内容自动保存在所选日期"
                 } else {
-                    "从文字、图片或表格开始记录今天的工作"
+                    "从文字、图片或表格开始记录，内容自动保存在当前日期"
                 },
         )
         Row(
@@ -457,17 +457,16 @@ private fun QuickRecordToolbar(
             }
             OutlinedButton(onClick = onAddImage, enabled = !isImageImporting) {
                 androidx.compose.material3.Icon(Icons.Outlined.Image, contentDescription = "添加图片")
-                Text(if (isImageImporting) "导入中" else "图片", modifier = Modifier.padding(start = 6.dp))
+                Text(
+                    if (isImageImporting) "导入中" else "图片",
+                    modifier = Modifier.padding(start = 6.dp),
+                )
             }
             OutlinedButton(onClick = onAddTable) {
                 androidx.compose.material3.Icon(Icons.Outlined.TableChart, contentDescription = "添加表格")
                 Text("表格", modifier = Modifier.padding(start = 6.dp))
             }
         }
-        WorkLogSectionHeader(
-            title = if (isHistorical) "当日工作记录" else "今日工作记录",
-            description = if (isHistorical) "内容会自动保存在所选日期" else "内容会自动保存在当前日期",
-        )
     }
 }
 

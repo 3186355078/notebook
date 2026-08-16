@@ -6,11 +6,13 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,7 +29,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -53,7 +60,7 @@ import com.worklogai.app.core.designsystem.component.WorkLogActionRow
 import com.worklogai.app.core.designsystem.component.WorkLogActionRowContent
 import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogSection
-import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.theme.WorkLogIndicatorSize
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -67,6 +74,7 @@ fun SettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
     val notificationPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             viewModel.onAction(AiSettingsAction.NotificationPermissionStateChanged(granted))
@@ -82,26 +90,31 @@ fun SettingsScreen(
         viewModel.events.collect { event ->
             when (event) {
                 AiSettingsUiEvent.RequestNotificationPermission -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                        PackageManager.PERMISSION_GRANTED
-                    ) {
+                    val notificationPermissionMissing =
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            ) != PackageManager.PERMISSION_GRANTED
+                    if (notificationPermissionMissing) {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 }
-                is AiSettingsUiEvent.ShowMessage ->
-                    android.widget.Toast
-                        .makeText(context, event.message, android.widget.Toast.LENGTH_SHORT)
-                        .show()
+                is AiSettingsUiEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
             }
         }
     }
-    SettingsContent(
-        state = state,
-        onAction = viewModel::onAction,
-        onOpenDataManagement = onOpenDataManagement,
-        modifier = modifier,
-    )
+    Box(modifier = modifier.fillMaxSize()) {
+        SettingsContent(
+            state = state,
+            onAction = viewModel::onAction,
+            onOpenDataManagement = onOpenDataManagement,
+        )
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
 }
 
 @Composable
@@ -118,7 +131,7 @@ internal fun SettingsContent(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(WorkLogSpacing.largePlus),
-        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.largePlus),
+        verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.large),
     ) {
         WorkLogPageHeader(
             eyebrow = "偏好与安全",
@@ -129,18 +142,7 @@ internal fun SettingsContent(
             title = "外观",
             description = "跟随系统浅色/深色模式；Android 12 及以上默认使用系统动态配色。",
         ) {
-            WorkLogActionRow(
-                content =
-                    WorkLogActionRowContent(
-                        icon = Icons.Outlined.Palette,
-                        title = "系统主题",
-                        summary = "主题跟随系统；优先级同时使用文字、图标与局部颜色区分",
-                    ),
-                onClick = null,
-                trailing = {
-                    WorkLogStatusChip(label = "自动")
-                },
-            )
+            AppearanceInfoRow()
         }
         WorkLogSection(title = "AI 服务") {
             ProviderModeControl(state, onAction)
@@ -149,7 +151,7 @@ internal fun SettingsContent(
         }
         WorkLogSection(
             title = "自动总结",
-            description = "默认关闭，仅处理已经结束且允许用于 AI 的工作记录周期。",
+            description = "默认关闭，仅处理已经结束且允许用于 AI 的工作记录周期；下次检查由系统调度，时间不保证精确。",
         ) {
             AutoSummarySection(state, onAction)
         }
@@ -188,24 +190,47 @@ internal fun SettingsContent(
 }
 
 @Composable
+private fun AppearanceInfoRow() {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = WorkLogSpacing.small),
+        horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+            contentColor = MaterialTheme.colorScheme.primary,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Icon(
+                Icons.Outlined.Palette,
+                contentDescription = null,
+                modifier = Modifier.padding(WorkLogSpacing.small).size(22.dp),
+            )
+        }
+        Column {
+            Text("系统主题", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "无需手动切换，浅色、深色与动态配色均由系统决定",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
 private fun ProviderModeControl(
     state: AiSettingsUiState,
     onAction: (AiSettingsAction) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = WorkLogSpacing.small),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text("使用模拟服务", style = MaterialTheme.typography.titleMedium)
-            Text("无需 API Key，可完整演示周报和月报生成。", style = MaterialTheme.typography.bodySmall)
-        }
-        Switch(
-            checked = state.settings.useMockProvider,
-            onCheckedChange = { value -> onAction(AiSettingsAction.UseMockChanged(value)) },
-            modifier = Modifier.semantics { contentDescription = "使用模拟服务" },
-        )
-    }
+    SettingSwitchRow(
+        title = "使用模拟服务",
+        description = "无需 API Key，可完整演示周报和月报生成。",
+        checked = state.settings.useMockProvider,
+        descriptionForAccessibility = "使用模拟服务",
+        onCheckedChange = { value -> onAction(AiSettingsAction.UseMockChanged(value)) },
+        showDivider = false,
+    )
 }
 
 @Composable
@@ -215,6 +240,7 @@ private fun ProviderConfiguration(
     onAction: (AiSettingsAction) -> Unit,
     onShowApiKeyChanged: (Boolean) -> Unit,
 ) {
+    SettingsGroupLabel("服务配置")
     OutlinedTextField(
         value = state.settings.baseUrl,
         onValueChange = { value -> onAction(AiSettingsAction.BaseUrlChanged(value)) },
@@ -235,6 +261,22 @@ private fun ProviderConfiguration(
         shape = MaterialTheme.shapes.medium,
     )
     OutlinedTextField(
+        value =
+            state.settings.timeoutSeconds
+                .takeIf { it > 0 }
+                ?.toString()
+                .orEmpty(),
+        onValueChange = { value -> onAction(AiSettingsAction.TimeoutChanged(value)) },
+        enabled = !state.isLoading,
+        modifier = Modifier.widthIn(max = 180.dp),
+        label = { Text("超时时间（秒）") },
+        supportingText = { Text("10—120 秒") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        shape = MaterialTheme.shapes.medium,
+    )
+    SettingsGroupLabel("安全")
+    OutlinedTextField(
         value = state.apiKeyInput,
         onValueChange = { value -> onAction(AiSettingsAction.ApiKeyChanged(value)) },
         enabled = !state.settings.useMockProvider && !state.isLoading,
@@ -254,20 +296,15 @@ private fun ProviderConfiguration(
             }
         },
     )
-    OutlinedTextField(
-        value =
-            state.settings.timeoutSeconds
-                .takeIf { it > 0 }
-                ?.toString()
-                .orEmpty(),
-        onValueChange = { value -> onAction(AiSettingsAction.TimeoutChanged(value)) },
-        enabled = !state.isLoading,
-        modifier = Modifier.widthIn(max = 180.dp),
-        label = { Text("超时时间（秒）") },
-        supportingText = { Text("10—120 秒") },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        singleLine = true,
-        shape = MaterialTheme.shapes.medium,
+}
+
+@Composable
+private fun SettingsGroupLabel(label: String) {
+    Text(
+        label,
+        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.labelLarge,
+        modifier = Modifier.padding(top = WorkLogSpacing.small),
     )
 }
 
@@ -283,11 +320,14 @@ private fun SettingsActions(
     ) {
         Button(onClick = { onAction(AiSettingsAction.Save) }, enabled = !state.isSaving && !state.isLoading) {
             if (state.isSaving) {
-                CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = WorkLogSpacing.small).size(WorkLogIndicatorSize.inline),
+                    strokeWidth = 2.dp,
+                )
             }
             Text("保存设置")
         }
-        Button(
+        OutlinedButton(
             onClick = { onAction(AiSettingsAction.TestConnection) },
             enabled = !state.isTestingConnection && !state.isSaving && !state.isLoading,
         ) { Text(if (state.isTestingConnection) "正在测试…" else "测试连接") }
@@ -331,6 +371,7 @@ private fun AutoSummarySection(
         checked = state.settings.notifyOnAutoSummaryCompletion,
         descriptionForAccessibility = "生成完成后通知",
         onCheckedChange = { onAction(AiSettingsAction.NotifyOnAutoSummaryCompletionChanged(it)) },
+        showDivider = false,
     )
     if (!state.notificationPermissionGranted && state.settings.notifyOnAutoSummaryCompletion) {
         Text("系统通知权限未开启，自动生成仍会正常执行。", style = MaterialTheme.typography.bodySmall)
@@ -344,24 +385,30 @@ private fun AutoSummarySection(
     state.lastAutoFailureMessage?.let { message ->
         Text("最近自动生成失败：$message", color = MaterialTheme.colorScheme.error)
     }
-    Text("下次检查由系统调度，时间不保证精确。", style = MaterialTheme.typography.bodySmall)
-    Button(
+    OutlinedButton(
         onClick = { onAction(AiSettingsAction.RunAutoSummaryCheck) },
         enabled = !state.isScheduling && !state.isLoading,
         modifier = Modifier.semantics { contentDescription = "立即检查自动总结" },
     ) {
-        if (state.isScheduling) CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+        if (state.isScheduling) {
+            CircularProgressIndicator(
+                modifier = Modifier.padding(end = WorkLogSpacing.small).size(WorkLogIndicatorSize.inline),
+                strokeWidth = 2.dp,
+            )
+        }
         Text("立即检查一次")
     }
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun SettingSwitchRow(
     title: String,
     description: String,
     checked: Boolean,
     descriptionForAccessibility: String,
     onCheckedChange: (Boolean) -> Unit,
+    showDivider: Boolean = true,
 ) {
     Column {
         Row(
@@ -382,7 +429,9 @@ private fun SettingSwitchRow(
                 modifier = Modifier.semantics { contentDescription = descriptionForAccessibility },
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        if (showDivider) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        }
     }
 }
 

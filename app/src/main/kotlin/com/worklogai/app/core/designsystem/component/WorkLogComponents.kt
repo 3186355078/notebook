@@ -18,6 +18,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.worklogai.app.core.designsystem.theme.WorkLogIndicatorSize
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 
 @Composable
@@ -152,6 +155,33 @@ fun WorkLogContentSurface(
 }
 
 @Composable
+fun WorkLogOutlinedCard(
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = containerColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, borderColor),
+        content = content,
+    )
+}
+
+@Composable
+fun workLogFilledInputColors(): TextFieldColors =
+    TextFieldDefaults.colors(
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+        unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant,
+    )
+
+@Composable
 fun WorkLogActionRow(
     content: WorkLogActionRowContent,
     onClick: (() -> Unit)?,
@@ -211,7 +241,10 @@ fun WorkLogLoadingState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(30.dp), strokeWidth = 3.dp)
+            CircularProgressIndicator(
+                modifier = Modifier.size(WorkLogIndicatorSize.standard),
+                strokeWidth = 3.dp,
+            )
             Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         }
     }

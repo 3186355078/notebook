@@ -67,7 +67,7 @@ class TodayScreenContentTest {
         }
 
         composeRule.onNodeWithText("表格标题（可选）").assertIsDisplayed()
-        composeRule.onNodeWithText("列名").assertIsDisplayed()
+        composeRule.onNodeWithTag("table_column_name_column").assertIsDisplayed()
         composeRule.onNodeWithTag("table_add_row_table").performScrollTo().performClick()
         composeRule.onNodeWithTag("table_add_column_table").performScrollTo().performClick()
         composeRule.onNodeWithTag("table_title_table").performTextInput("标题")

@@ -44,7 +44,7 @@ class SettingsContentTest {
 
     @Test
     fun largeFontThemeSummaryIsNotEllipsized() {
-        val summary = "主题跟随系统；优先级同时使用文字、图标与局部颜色区分"
+        val summary = "无需手动切换，浅色、深色与动态配色均由系统决定"
 
         composeRule.setContent {
             val density = LocalDensity.current

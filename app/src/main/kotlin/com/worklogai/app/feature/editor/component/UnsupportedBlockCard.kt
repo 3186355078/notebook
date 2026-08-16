@@ -9,7 +9,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -22,8 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.worklogai.app.R
+import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.model.ContentBlockType
 import com.worklogai.app.feature.editor.UnsupportedBlockUiModel
 
@@ -41,8 +41,8 @@ fun UnsupportedBlockCard(
             ContentBlockType.TEXT -> return
         }
 
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    WorkLogContentSurface(modifier = modifier) {
+        Column(modifier = Modifier.padding(WorkLogSpacing.medium)) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(text = message, modifier = Modifier.weight(1f))
                 IconButton(onClick = { menuExpanded = true }) {

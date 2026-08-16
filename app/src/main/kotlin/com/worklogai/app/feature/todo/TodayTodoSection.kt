@@ -51,7 +51,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -74,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
 import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
 import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.component.workLogFilledInputColors
 import com.worklogai.app.core.designsystem.theme.WorkLogElevation
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.model.DailyTodo
@@ -181,14 +181,7 @@ private fun QuickTodoInput(
             }
         },
         shape = MaterialTheme.shapes.medium,
-        colors =
-            TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant,
-            ),
+        colors = workLogFilledInputColors(),
         modifier = Modifier.fillMaxWidth().testTag("quick_todo_input"),
     )
 }
@@ -291,7 +284,7 @@ internal fun TodoItem(
             if (presentation.isDragging) {
                 BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f))
             } else {
-                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             },
     ) {
         Row(
@@ -379,7 +372,7 @@ internal fun TodoItem(
                         )
                     }
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     PriorityBadge(todo.priority)
@@ -474,6 +467,7 @@ private fun TodoItemMenu(
             },
             leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
         )
+        HorizontalDivider()
         TodoStatus.entries.forEach { status ->
             DropdownMenuItem(
                 text = { Text("设为${status.chineseLabel}") },
@@ -482,6 +476,18 @@ private fun TodoItemMenu(
                     onAction(TodayTodoAction.ChangeStatus(todo.id, status))
                 },
                 enabled = status != todo.status,
+                leadingIcon = {
+                    Icon(
+                        imageVector =
+                            when (status) {
+                                TodoStatus.NOT_STARTED -> Icons.Outlined.RadioButtonUnchecked
+                                TodoStatus.IN_PROGRESS -> Icons.Outlined.Pending
+                                TodoStatus.DONE -> Icons.Outlined.CheckCircle
+                                TodoStatus.CANCELED -> Icons.Outlined.Cancel
+                            },
+                        contentDescription = null,
+                    )
+                },
             )
         }
         HorizontalDivider()
@@ -498,6 +504,7 @@ private fun TodoItemMenu(
                         todo.status != TodoStatus.CANCELED,
             )
         }
+        HorizontalDivider()
         if (todo.linkedContentBlockId != null) {
             DropdownMenuItem(
                 text = { Text("重新同步为新的工作记录") },
@@ -572,7 +579,7 @@ private fun TodoEditorDialog(
                     Modifier
                         .heightIn(max = 560.dp)
                         .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
             ) {
                 OutlinedTextField(
                     value = draft.title,
@@ -597,7 +604,7 @@ private fun TodoEditorDialog(
                 Text("优先级", style = MaterialTheme.typography.labelLarge)
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
                 ) {
                     TodoPriority.entries.forEach { priority ->
                         FilterChip(
@@ -613,7 +620,7 @@ private fun TodoEditorDialog(
                     Text("状态", style = MaterialTheme.typography.labelLarge)
                     Row(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
                     ) {
                         TodoStatus.entries.forEach { status ->
                             FilterChip(
@@ -664,7 +671,7 @@ private fun TodoCompletionDialog(
         onDismissRequest = { if (!isBusy) onAction(TodayTodoAction.DismissCompletion) },
         title = { Text(if (prompt.isResync) "重新同步工作记录？" else "完成待办") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
                 Text(prompt.title)
                 if (prompt.isResync) {
                     Text(
@@ -711,7 +718,7 @@ private fun TodoConversionDialog(
         onDismissRequest = { if (!isBusy) onAction(TodayTodoAction.DismissTextConversion) },
         title = { Text(if (prompt.duplicateWarning) "同标题待办已存在" else "转为待办") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium)) {
                 if (prompt.duplicateWarning) {
                     Text("同一天已有同标题待办。原工作记录不会删除，是否仍要创建？")
                 } else {
@@ -725,7 +732,7 @@ private fun TodoConversionDialog(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
                 ) {
                     TodoPriority.entries.forEach { priority ->
                         FilterChip(
