@@ -45,7 +45,7 @@ internal fun TodoPriority.lower(): TodoPriority? =
 internal fun PriorityBadge(priority: TodoPriority) {
     val color = todoPriorityColor(priority)
     WorkLogStatusChip(
-        label = "${priority.chineseLabel}优先级",
+        label = priority.chineseLabel,
         containerColor = color.copy(alpha = 0.12f),
         contentColor = color,
     )

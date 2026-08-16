@@ -7,16 +7,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BrokenImage
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -71,13 +76,31 @@ fun ImageBlockEditor(
                         Modifier
                             .fillMaxWidth()
                             .heightIn(max = 240.dp)
-                            .clip(RoundedCornerShape(WorkLogSpacing.medium))
+                            .clip(MaterialTheme.shapes.medium)
                             .clickable { previewVisible = true },
                 )
             } else {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
-                    Icon(Icons.Outlined.BrokenImage, contentDescription = "图片文件已不存在")
-                    Text("图片文件已不存在", modifier = Modifier.padding(start = 8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = WorkLogSpacing.large),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.BrokenImage,
+                            contentDescription = "图片文件已不存在",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "图片文件已不存在",
+                            modifier = Modifier.padding(start = WorkLogSpacing.small),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             OutlinedTextField(
@@ -85,7 +108,7 @@ fun ImageBlockEditor(
                 onValueChange = onCaptionChanged,
                 label = { Text("图片说明（可选）") },
                 minLines = 2,
-                shape = androidx.compose.material3.MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -106,17 +129,31 @@ internal fun ImageOverflowMenu(
     controls: BlockControls,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text("上移记录") }, onClick = {
-            onDismiss()
-            controls.onMoveUp()
-        }, enabled = controls.canMoveUp)
-        DropdownMenuItem(text = { Text("下移记录") }, onClick = {
-            onDismiss()
-            controls.onMoveDown()
-        }, enabled = controls.canMoveDown)
-        DropdownMenuItem(text = { Text("删除记录") }, onClick = {
-            onDismiss()
-            controls.onDelete()
-        })
+        DropdownMenuItem(
+            text = { Text("上移记录") },
+            onClick = {
+                onDismiss()
+                controls.onMoveUp()
+            },
+            enabled = controls.canMoveUp,
+            leadingIcon = { Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text("下移记录") },
+            onClick = {
+                onDismiss()
+                controls.onMoveDown()
+            },
+            enabled = controls.canMoveDown,
+            leadingIcon = { Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null) },
+        )
+        DropdownMenuItem(
+            text = { Text("删除记录") },
+            onClick = {
+                onDismiss()
+                controls.onDelete()
+            },
+            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+        )
     }
 }

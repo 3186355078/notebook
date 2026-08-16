@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.worklogai.app.R
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.component.WorkLogSectionHeader
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.designsystem.theme.WorkLogTheme
 import com.worklogai.app.feature.editor.TextBlockUiModel
@@ -56,8 +57,10 @@ fun TextBlockEditor(
     WorkLogContentSurface(modifier = modifier) {
         Column(modifier = Modifier.padding(WorkLogSpacing.medium)) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                androidx.compose.foundation.layout
-                    .Spacer(modifier = Modifier.weight(1f))
+                WorkLogSectionHeader(
+                    title = "文字",
+                    modifier = Modifier.weight(1f),
+                )
                 TextBlockMenu(
                     expanded = menuExpanded,
                     canConvertToTodo = block.text.isNotBlank(),

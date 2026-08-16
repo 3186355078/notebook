@@ -1,11 +1,11 @@
 package com.worklogai.app.feature.history
 
-import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -13,23 +13,34 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.worklogai.app.core.designsystem.component.workLogFilledInputColors
+import com.worklogai.app.core.designsystem.theme.WorkLogIndicatorSize
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -53,21 +64,18 @@ internal fun HistorySearchBar(
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = "搜索历史记录") },
         trailingIcon = {
             when {
-                isSearching -> CircularProgressIndicator(modifier = Modifier.padding(12.dp))
+                isSearching ->
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(WorkLogIndicatorSize.inline),
+                        strokeWidth = 2.dp,
+                    )
                 query.isNotEmpty() ->
                     IconButton(onClick = onClear) {
                         Icon(Icons.Outlined.Clear, contentDescription = "清除搜索")
                     }
             }
         },
-        colors =
-            TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant,
-            ),
+        colors = workLogFilledInputColors(),
     )
 }
 
@@ -76,12 +84,18 @@ internal fun HistoryModeSelector(
     selectedMode: HistoryMode,
     onModeSelected: (HistoryMode) -> Unit,
 ) {
-    TabRow(selectedTabIndex = HistoryMode.entries.indexOf(selectedMode)) {
-        HistoryMode.entries.forEach { mode ->
-            Tab(
+    SingleChoiceSegmentedButtonRow(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = WorkLogSpacing.largePlus),
+    ) {
+        HistoryMode.entries.forEachIndexed { index, mode ->
+            SegmentedButton(
                 selected = mode == selectedMode,
                 onClick = { onModeSelected(mode) },
-                text = { Text(mode.label) },
+                shape = SegmentedButtonDefaults.itemShape(index, HistoryMode.entries.size),
+                label = { Text(mode.label) },
             )
         }
     }
@@ -96,7 +110,13 @@ internal fun HistoryPeriodNavigator(
     val today = LocalDate.now()
     val canMoveNext = state.canMoveToNextPeriod(today)
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = WorkLogSpacing.largePlus,
+                    vertical = WorkLogSpacing.small,
+                ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -111,7 +131,7 @@ internal fun HistoryPeriodNavigator(
                     onSelected = { onAction(HistoryAction.SelectDate(it)) },
                 )
             } else {
-                OutlinedButton(onClick = { onAction(HistoryAction.ReturnToCurrentPeriod) }) {
+                TextButton(onClick = { onAction(HistoryAction.ReturnToCurrentPeriod) }) {
                     Text(state.returnLabel)
                 }
             }
@@ -122,25 +142,44 @@ internal fun HistoryPeriodNavigator(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HistoryDatePickerButton(
     selectedDate: LocalDate,
     onSelected: (LocalDate) -> Unit,
 ) {
-    val context = LocalContext.current
-    OutlinedButton(
-        onClick = {
-            DatePickerDialog(
-                context,
-                { _, year, month, day -> onSelected(LocalDate.of(year, month + 1, day)) },
-                selectedDate.year,
-                selectedDate.monthValue - 1,
-                selectedDate.dayOfMonth,
-            ).show()
-        },
-    ) {
-        Icon(Icons.Outlined.CalendarMonth, contentDescription = "选择日期")
-        Text("选择日期", modifier = Modifier.padding(start = 6.dp))
+    var pickerVisible by remember { mutableStateOf(false) }
+    TextButton(onClick = { pickerVisible = true }) {
+        Icon(
+            Icons.Outlined.CalendarMonth,
+            contentDescription = "选择日期",
+            modifier = Modifier.size(16.dp),
+        )
+        Text("选择日期", modifier = Modifier.padding(start = WorkLogSpacing.extraSmall))
+    }
+    if (pickerVisible) {
+        val pickerState =
+            rememberDatePickerState(
+                initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            )
+        DatePickerDialog(
+            onDismissRequest = { pickerVisible = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerVisible = false
+                        pickerState.selectedDateMillis
+                            ?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                            ?.let(onSelected)
+                    },
+                ) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickerVisible = false }) { Text("取消") }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
     }
 }
 

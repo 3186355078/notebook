@@ -1,15 +1,23 @@
 package com.worklogai.app.feature.editor.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -18,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -27,6 +36,9 @@ import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.model.TableColumn
 import com.worklogai.app.core.model.TableRow
 import com.worklogai.app.feature.editor.TableBlockUiModel
+
+private val TABLE_COLUMN_WIDTH = 120.dp
+private val TABLE_ROW_ACTION_SIZE = 20.dp
 
 @Composable
 fun TableBlockEditor(
@@ -40,9 +52,7 @@ fun TableBlockEditor(
     WorkLogContentSurface(modifier = modifier) {
         Column(
             modifier = Modifier.padding(WorkLogSpacing.medium),
-            verticalArrangement =
-                androidx.compose.foundation.layout.Arrangement
-                    .spacedBy(WorkLogSpacing.small),
+            verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
         ) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 WorkLogSectionHeader(
@@ -59,7 +69,7 @@ fun TableBlockEditor(
                 value = content.title.orEmpty(),
                 onValueChange = callbacks.onTitleChanged,
                 label = { Text("表格标题（可选）") },
-                shape = androidx.compose.material3.MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().testTag("table_title_${block.id}"),
             )
             Column(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
@@ -79,10 +89,11 @@ fun TableBlockEditor(
                     )
                 }
             }
-            Row {
+            Row(horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small)) {
                 OutlinedButton(
                     onClick = callbacks.onAddRow,
                     enabled = content.rows.size < 50,
+                    contentPadding = PaddingValues(horizontal = WorkLogSpacing.medium, vertical = WorkLogSpacing.small),
                     modifier = Modifier.testTag("table_add_row_${block.id}"),
                 ) {
                     Text("添加一行")
@@ -90,10 +101,8 @@ fun TableBlockEditor(
                 OutlinedButton(
                     onClick = callbacks.onAddColumn,
                     enabled = content.columns.size < 8,
-                    modifier =
-                        Modifier
-                            .padding(start = 8.dp)
-                            .testTag("table_add_column_${block.id}"),
+                    contentPadding = PaddingValues(horizontal = WorkLogSpacing.medium, vertical = WorkLogSpacing.small),
+                    modifier = Modifier.testTag("table_add_column_${block.id}"),
                 ) {
                     Text("添加一列")
                 }
@@ -109,16 +118,46 @@ private fun TableHeader(
     onDeleteColumn: (String) -> Unit,
     canDelete: Boolean,
 ) {
-    Row {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(WorkLogSpacing.small),
+                ).padding(vertical = WorkLogSpacing.extraSmall),
+        verticalAlignment = Alignment.Top,
+    ) {
         columns.forEach { column ->
-            Column(modifier = Modifier.padding(end = 8.dp)) {
+            Column(
+                modifier =
+                    Modifier.padding(
+                        start = WorkLogSpacing.extraSmall,
+                        end = WorkLogSpacing.extraSmall,
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 OutlinedTextField(
                     value = column.name,
                     onValueChange = { onColumnNameChanged(column.id, it) },
-                    label = { Text("列名") },
+                    placeholder = { Text("列名") },
+                    shape = MaterialTheme.shapes.small,
+                    textStyle = MaterialTheme.typography.titleSmall,
+                    minLines = 1,
+                    modifier =
+                        Modifier
+                            .width(TABLE_COLUMN_WIDTH)
+                            .testTag("table_column_name_${column.id}"),
                 )
-                OutlinedButton(onClick = { onDeleteColumn(column.id) }, enabled = canDelete) {
-                    Text("删除列")
+                IconButton(
+                    onClick = { onDeleteColumn(column.id) },
+                    enabled = canDelete,
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "删除列",
+                        modifier = Modifier.size(TABLE_ROW_ACTION_SIZE),
+                    )
                 }
             }
         }
@@ -133,21 +172,33 @@ private fun TableRowEditor(
     onDeleteRow: (String) -> Unit,
     canDelete: Boolean,
 ) {
-    Row(modifier = Modifier.padding(top = 8.dp)) {
+    Row(
+        modifier = Modifier.padding(top = WorkLogSpacing.extraSmall),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         columns.forEach { column ->
             OutlinedTextField(
                 value = row.cells[column.id].orEmpty(),
                 onValueChange = { onCellChanged(row.id, column.id, it) },
-                label = { Text(column.name.ifBlank { "列" }) },
+                placeholder = { Text(column.name.ifBlank { "列" }) },
+                shape = MaterialTheme.shapes.small,
                 minLines = 1,
                 modifier =
                     Modifier
-                        .padding(end = 8.dp)
+                        .padding(horizontal = WorkLogSpacing.extraSmall)
+                        .width(TABLE_COLUMN_WIDTH)
                         .testTag("table_cell_${row.id}_${column.id}"),
             )
         }
-        OutlinedButton(onClick = { onDeleteRow(row.id) }, enabled = canDelete) {
-            Text("删除行")
+        IconButton(
+            onClick = { onDeleteRow(row.id) },
+            enabled = canDelete,
+        ) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = "删除行",
+                modifier = Modifier.size(TABLE_ROW_ACTION_SIZE),
+            )
         }
     }
 }

@@ -25,6 +25,12 @@ object WorkLogElevation {
     val overlay = 8.dp
 }
 
+object WorkLogIndicatorSize {
+    val inline = 16.dp
+    val compact = 22.dp
+    val standard = 30.dp
+}
+
 object WorkLogMotion {
     const val QUICK_MILLIS = 150
     const val STANDARD_MILLIS = 220

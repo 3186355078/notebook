@@ -1,17 +1,19 @@
 package com.worklogai.app.feature.history
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,8 +49,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.EmptyState
 import com.worklogai.app.core.designsystem.component.WorkLogErrorState
 import com.worklogai.app.core.designsystem.component.WorkLogLoadingState
+import com.worklogai.app.core.designsystem.component.WorkLogOutlinedCard
 import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
+import com.worklogai.app.core.designsystem.theme.WorkLogIndicatorSize
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.repository.TodoDateStats
 import kotlinx.coroutines.flow.collectLatest
@@ -184,7 +187,7 @@ private fun HistoryList(
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(WorkLogSpacing.largePlus),
-                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 if (state.items.isEmpty()) {
@@ -216,7 +219,10 @@ private fun HistoryList(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             if (state.isLoadingMore) {
-                                CircularProgressIndicator()
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(WorkLogIndicatorSize.inline),
+                                    strokeWidth = 2.dp,
+                                )
                             } else {
                                 Text("加载更多")
                             }
@@ -233,33 +239,27 @@ private fun HistoryItemCard(
     todoStats: TodoDateStats?,
     onOpen: () -> Unit,
 ) {
-    Surface(
+    WorkLogOutlinedCard(
         modifier =
             Modifier
-                .fillMaxWidth()
                 .semantics { contentDescription = "打开${item.dateLabel}工作记录：${item.previewText}" }
                 .clickable(onClick = onOpen),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        shape = MaterialTheme.shapes.medium,
-        border =
-            BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
-            ),
     ) {
         Row(
             modifier =
-                Modifier.padding(
-                    horizontal = WorkLogSpacing.small,
-                    vertical = WorkLogSpacing.medium,
-                ),
+                Modifier
+                    .height(IntrinsicSize.Min)
+                    .padding(
+                        horizontal = WorkLogSpacing.small,
+                        vertical = WorkLogSpacing.medium,
+                    ),
             horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.medium),
         ) {
             Box(
                 modifier =
                     Modifier
+                        .fillMaxHeight()
                         .width(3.dp)
-                        .height(68.dp)
                         .background(
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
                             MaterialTheme.shapes.extraSmall,

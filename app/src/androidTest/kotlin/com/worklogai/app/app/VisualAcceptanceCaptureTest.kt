@@ -121,7 +121,7 @@ class VisualAcceptanceCaptureTest {
         capture(VisualScene.TODAY_MULTI, "today-multi.png")
         capture(VisualScene.TODAY_COLLAPSED, "today-completed-collapsed.png")
         capture(VisualScene.TODAY_QUICK_RECORD, "today-quick-record.png") {
-            composeRule.onNodeWithText("快速记录").performScrollTo()
+            composeRule.onNodeWithText("今日工作记录").performScrollTo()
         }
         capture(VisualScene.TODAY_CONTENT, "today-content.png")
         capture(VisualScene.TODAY_FONT_15, "font-1.5x.png")

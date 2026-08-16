@@ -45,9 +45,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.worklogai.app.core.designsystem.component.WorkLogContentSurface
+import com.worklogai.app.core.designsystem.component.WorkLogEmptyState
+import com.worklogai.app.core.designsystem.component.WorkLogLoadingState
 import com.worklogai.app.core.designsystem.component.WorkLogPageHeader
 import com.worklogai.app.core.designsystem.component.WorkLogStatusChip
 import com.worklogai.app.core.designsystem.markdown.WorkLogMarkdown
+import com.worklogai.app.core.designsystem.theme.WorkLogIndicatorSize
 import com.worklogai.app.core.designsystem.theme.WorkLogSpacing
 import com.worklogai.app.core.history.DateRange
 import com.worklogai.app.core.model.SummaryType
@@ -161,7 +164,10 @@ internal fun SummaryContent(
             style = MaterialTheme.typography.bodySmall,
         )
         if (state.isLoading) {
-            CircularProgressIndicator()
+            WorkLogLoadingState(
+                label = "正在加载总结",
+                modifier = Modifier.fillMaxWidth(),
+            )
         } else {
             SummaryLoadedContent(state, onAction)
         }
@@ -234,15 +240,30 @@ private fun SummaryGenerationStatus(generation: SummaryGenerationState) {
             }
         }
         is SummaryGenerationState.NoEligibleContent ->
-            Text(
-                if (generation.allEntriesBlocked) "该时间范围内的记录未允许用于 AI 总结" else "该时间范围内没有可用于总结的工作记录",
+            WorkLogEmptyState(
+                title =
+                    if (generation.allEntriesBlocked) {
+                        "记录未允许用于 AI 总结"
+                    } else {
+                        "暂无可总结的工作记录"
+                    },
+                body =
+                    if (generation.allEntriesBlocked) {
+                        "该时间范围内的记录均未允许用于 AI 总结"
+                    } else {
+                        "该时间范围内没有可用于总结的工作记录"
+                    },
+                compact = true,
             )
         SummaryGenerationState.Generating ->
             Row(
                 horizontalArrangement = Arrangement.spacedBy(WorkLogSpacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(WorkLogIndicatorSize.compact),
+                    strokeWidth = 2.dp,
+                )
                 Text("正在生成总结…", style = MaterialTheme.typography.bodyMedium)
             }
         else -> Unit
@@ -277,10 +298,12 @@ private fun SummaryEditorOrReader(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
-                WorkLogMarkdown(
-                    markdown = state.editingText,
-                    modifier = Modifier.padding(horizontal = WorkLogSpacing.small),
-                )
+                WorkLogContentSurface {
+                    WorkLogMarkdown(
+                        markdown = state.editingText,
+                        modifier = Modifier.padding(WorkLogSpacing.medium),
+                    )
+                }
             }
         } else {
             OutlinedTextField(
@@ -298,10 +321,12 @@ private fun SummaryEditorOrReader(
         }
     } else {
         state.displayContent?.let { content ->
-            WorkLogMarkdown(
-                markdown = content,
-                modifier = Modifier.padding(horizontal = WorkLogSpacing.small),
-            )
+            WorkLogContentSurface {
+                WorkLogMarkdown(
+                    markdown = content,
+                    modifier = Modifier.padding(WorkLogSpacing.medium),
+                )
+            }
         }
     }
 }
@@ -405,11 +430,11 @@ private fun SummaryActions(
                 }
             }
         }
-    }
-    if (state.generationState is SummaryGenerationState.Failed &&
-        state.summary == null
-    ) {
-        TextButton(onClick = { onAction(SummaryAction.OpenSettings) }) { Text("前往设置") }
+        if (state.generationState is SummaryGenerationState.Failed &&
+            state.summary == null
+        ) {
+            TextButton(onClick = { onAction(SummaryAction.OpenSettings) }) { Text("前往设置") }
+        }
     }
 }
 
